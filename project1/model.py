@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.preprocessing import QuantileTransformer
 import xgboost as xgb
+import joblib
 import unicodedata
 
 # -------------------------------
@@ -107,6 +108,15 @@ model = xgb.XGBRegressor(
 )
 
 model.fit(X_train, y_train)
+
+
+joblib.dump(model, 'salary_model.pkl')
+joblib.dump(qt, 'salary_transformer.pkl')
+joblib.dump(X_train.columns.tolist(), 'feature_names.pkl')
+
+print("\n✓ Model saved: salary_model.pkl")
+print("✓ Transformer saved: salary_transformer.pkl")
+print("✓ Features saved: feature_names.pkl")
 
 # -------------------------------
 # 11. Predict & inverse-transform

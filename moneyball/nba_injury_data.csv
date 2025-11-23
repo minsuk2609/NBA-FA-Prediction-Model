@@ -1,163 +1,172 @@
-Season,Team,Games_Missed_Top3,Injury_Prone_Count,Top_Player_Games
-2019-20,Atlanta Hawks,48,14,67
-2019-20,Boston Celtics,21,8,72
-2019-20,Chicago Bulls,41,12,65
-2019-20,Cleveland Cavaliers,30,14,65
-2019-20,Dallas Mavericks,26,10,75
-2019-20,Denver Nuggets,27,12,73
-2019-20,Detroit Pistons,73,16,66
-2019-20,Golden State Warriors,106,19,65
-2019-20,Houston Rockets,19,15,72
-2019-20,Indiana Pacers,15,8,73
-2019-20,Los Angeles Clippers,39,12,72
-2019-20,Los Angeles Lakers,16,12,71
-2019-20,Memphis Grizzlies,32,13,73
-2019-20,Miami Heat,14,13,73
-2019-20,Milwaukee Bucks,19,6,73
-2019-20,Minnesota Timberwolves,75,22,64
-2019-20,New Orleans Pelicans,21,8,72
-2019-20,New York Knicks,43,10,66
-2019-20,Oklahoma City Thunder,4,9,72
-2019-20,Orlando Magic,20,12,73
-2019-20,Philadelphia 76ers,15,11,73
-2019-20,Portland Trail Blazers,8,12,74
-2019-20,Sacramento Kings,21,18,72
-2019-20,San Antonio Spurs,24,7,71
-2019-20,Toronto Raptors,32,10,72
-2019-20,Utah Jazz,7,12,72
-2019-20,Washington Wizards,39,18,72
-2020-21,Atlanta Hawks,12,13,72
-2020-21,Boston Celtics,22,15,72
-2020-21,Chicago Bulls,60,15,72
-2020-21,Cleveland Cavaliers,30,20,72
-2020-21,Dallas Mavericks,18,11,72
-2020-21,Denver Nuggets,24,16,72
-2020-21,Detroit Pistons,70,15,72
-2020-21,Golden State Warriors,10,9,72
-2020-21,Houston Rockets,116,29,72
-2020-21,Indiana Pacers,26,13,72
-2020-21,Los Angeles Clippers,38,13,72
-2020-21,Los Angeles Lakers,63,11,72
-2020-21,Memphis Grizzlies,14,10,72
-2020-21,Miami Heat,28,15,72
-2020-21,Milwaukee Bucks,15,13,72
-2020-21,Minnesota Timberwolves,57,10,72
-2020-21,New Orleans Pelicans,22,14,72
-2020-21,New York Knicks,1,12,72
-2020-21,Oklahoma City Thunder,54,18,72
-2020-21,Orlando Magic,74,27,72
-2020-21,Philadelphia 76ers,24,14,72
-2020-21,Portland Trail Blazers,50,11,72
-2020-21,Sacramento Kings,28,19,72
-2020-21,San Antonio Spurs,16,9,72
-2020-21,Toronto Raptors,36,18,72
-2020-21,Utah Jazz,20,9,72
-2020-21,Washington Wizards,19,12,72
-2021-22,Atlanta Hawks,34,18,82
-2021-22,Boston Celtics,22,22,82
-2021-22,Chicago Bulls,21,16,82
-2021-22,Cleveland Cavaliers,27,20,82
-2021-22,Dallas Mavericks,19,21,82
-2021-22,Denver Nuggets,19,13,82
-2021-22,Detroit Pistons,79,22,82
-2021-22,Golden State Warriors,27,7,82
-2021-22,Houston Rockets,36,12,82
-2021-22,Indiana Pacers,112,27,82
-2021-22,Los Angeles Clippers,58,17,82
-2021-22,Los Angeles Lakers,68,22,82
-2021-22,Memphis Grizzlies,31,15,82
-2021-22,Miami Heat,44,15,82
-2021-22,Milwaukee Bucks,30,23,82
-2021-22,Minnesota Timberwolves,18,10,82
-2021-22,New Orleans Pelicans,83,18,82
-2021-22,New York Knicks,22,16,82
-2021-22,Oklahoma City Thunder,156,25,82
-2021-22,Orlando Magic,20,15,82
-2021-22,Philadelphia 76ers,68,17,82
-2021-22,Portland Trail Blazers,99,26,82
-2021-22,Sacramento Kings,54,24,82
-2021-22,San Antonio Spurs,21,18,82
-2021-22,Toronto Raptors,31,16,82
-2021-22,Utah Jazz,31,17,82
-2021-22,Washington Wizards,58,23,82
-2022-23,Atlanta Hawks,17,11,82
-2022-23,Boston Celtics,23,10,82
-2022-23,Chicago Bulls,13,9,82
-2022-23,Cleveland Cavaliers,27,11,82
-2022-23,Dallas Mavericks,78,18,82
-2022-23,Denver Nuggets,30,12,82
-2022-23,Detroit Pistons,93,19,82
-2022-23,Golden State Warriors,39,11,82
-2022-23,Houston Rockets,29,11,82
-2022-23,Indiana Pacers,28,12,82
-2022-23,Los Angeles Clippers,56,17,82
-2022-23,Los Angeles Lakers,53,20,82
-2022-23,Memphis Grizzlies,102,13,82
-2022-23,Miami Heat,22,14,82
-2022-23,Milwaukee Bucks,34,15,82
-2022-23,Minnesota Timberwolves,56,14,82
-2022-23,New Orleans Pelicans,44,11,82
-2022-23,New York Knicks,19,9,82
-2022-23,Oklahoma City Thunder,20,12,82
-2022-23,Orlando Magic,12,17,82
-2022-23,Philadelphia 76ers,40,14,82
-2022-23,Portland Trail Blazers,43,21,82
-2022-23,Sacramento Kings,12,10,82
-2022-23,San Antonio Spurs,63,17,82
-2022-23,Toronto Raptors,24,14,82
-2022-23,Utah Jazz,37,19,82
-2022-23,Washington Wizards,50,18,82
-2023-24,Atlanta Hawks,32,14,82
-2023-24,Boston Celtics,20,11,82
-2023-24,Chicago Bulls,6,11,82
-2023-24,Cleveland Cavaliers,52,13,82
-2023-24,Dallas Mavericks,36,17,82
-2023-24,Denver Nuggets,4,10,82
-2023-24,Detroit Pistons,74,27,82
-2023-24,Golden State Warriors,13,9,82
-2023-24,Houston Rockets,28,9,82
-2023-24,Indiana Pacers,54,16,82
-2023-24,Los Angeles Clippers,24,13,82
-2023-24,Los Angeles Lakers,17,13,82
-2023-24,Memphis Grizzlies,113,32,82
-2023-24,Miami Heat,33,16,82
-2023-24,Milwaukee Bucks,18,15,82
-2023-24,Minnesota Timberwolves,9,12,82
-2023-24,New Orleans Pelicans,34,13,82
-2023-24,New York Knicks,41,21,82
-2023-24,Oklahoma City Thunder,18,12,82
-2023-24,Orlando Magic,12,11,82
-2023-24,Philadelphia 76ers,24,24,82
-2023-24,Portland Trail Blazers,64,18,82
-2023-24,Sacramento Kings,8,13,82
-2023-24,San Antonio Spurs,25,11,82
-2023-24,Toronto Raptors,65,29,82
-2023-24,Utah Jazz,54,16,82
-2023-24,Washington Wizards,16,18,82
-2024-25,Atlanta Hawks,52,17,82
-2024-25,Boston Celtics,29,12,82
-2024-25,Chicago Bulls,48,14,82
-2024-25,Cleveland Cavaliers,18,15,82
-2024-25,Dallas Mavericks,92,21,82
-2024-25,Denver Nuggets,27,10,82
-2024-25,Detroit Pistons,21,13,82
-2024-25,Golden State Warriors,64,17,82
-2024-25,Houston Rockets,22,14,82
-2024-25,Indiana Pacers,13,13,82
-2024-25,Los Angeles Clippers,5,17,82
-2024-25,Los Angeles Lakers,63,20,82
-2024-25,Memphis Grizzlies,45,12,82
-2024-25,Miami Heat,9,14,82
-2024-25,Milwaukee Bucks,39,17,82
-2024-25,Minnesota Timberwolves,13,13,82
-2024-25,New Orleans Pelicans,93,23,82
-2024-25,New York Knicks,5,14,82
-2024-25,Oklahoma City Thunder,19,12,82
-2024-25,Orlando Magic,58,10,82
-2024-25,Philadelphia 76ers,52,28,82
-2024-25,Portland Trail Blazers,16,11,82
-2024-25,Sacramento Kings,87,19,82
-2024-25,San Antonio Spurs,101,15,82
-2024-25,Toronto Raptors,41,19,82
-2024-25,Utah Jazz,50,14,82
-2024-25,Washington Wizards,23,20,82
+Season,Team,Games_Missed_op8,Injury_Prone_Count,Top_Player_Games,Games_Missed_Top8,Star_Weighted_Games_Missed_Top8
+2019-20,Atlanta Hawks,189.0,14,67,,
+2019-20,Boston Celtics,77.0,8,72,,
+2019-20,Chicago Bulls,113.0,12,65,,
+2019-20,Cleveland Cavaliers,145.0,14,65,,
+2019-20,Dallas Mavericks,68.0,10,75,,
+2019-20,Denver Nuggets,65.0,12,73,,
+2019-20,Detroit Pistons,234.0,16,66,,
+2019-20,Golden State Warriors,271.0,19,65,,
+2019-20,Houston Rockets,147.0,15,72,,
+2019-20,Indiana Pacers,122.0,8,73,,
+2019-20,Los Angeles Clippers,148.0,12,72,,
+2019-20,Los Angeles Lakers,122.0,12,71,,
+2019-20,Memphis Grizzlies,68.0,13,73,,
+2019-20,Miami Heat,145.0,13,73,,
+2019-20,Milwaukee Bucks,58.0,6,73,,
+2019-20,Minnesota Timberwolves,313.0,22,64,,
+2019-20,New Orleans Pelicans,118.0,8,72,,
+2019-20,New York Knicks,200.0,10,66,,
+2019-20,Oklahoma City Thunder,82.0,9,72,,
+2019-20,Orlando Magic,82.0,12,73,,
+2019-20,Philadelphia 76ers,112.0,11,73,,
+2019-20,Portland Trail Blazers,193.0,12,74,,
+2019-20,Sacramento Kings,119.0,18,72,,
+2019-20,San Antonio Spurs,54.0,7,71,,
+2019-20,Toronto Raptors,112.0,10,72,,
+2019-20,Utah Jazz,72.0,12,72,,
+2019-20,Washington Wizards,142.0,18,72,,
+2020-21,Atlanta Hawks,153.0,13,72,,
+2020-21,Boston Celtics,179.0,15,72,,
+2020-21,Chicago Bulls,150.0,15,72,,
+2020-21,Cleveland Cavaliers,153.0,20,72,,
+2020-21,Dallas Mavericks,88.0,11,72,,
+2020-21,Denver Nuggets,208.0,16,72,,
+2020-21,Detroit Pistons,223.0,15,72,,
+2020-21,Golden State Warriors,93.0,9,72,,
+2020-21,Houston Rockets,337.0,29,72,,
+2020-21,Indiana Pacers,219.0,13,72,,
+2020-21,Los Angeles Clippers,129.0,13,72,,
+2020-21,Los Angeles Lakers,137.0,11,72,,
+2020-21,Memphis Grizzlies,123.0,10,72,,
+2020-21,Miami Heat,172.0,15,72,,
+2020-21,Milwaukee Bucks,178.0,13,72,,
+2020-21,Minnesota Timberwolves,113.0,10,72,,
+2020-21,New Orleans Pelicans,129.0,14,72,,
+2020-21,New York Knicks,117.0,12,72,,
+2020-21,Oklahoma City Thunder,210.0,18,72,,
+2020-21,Orlando Magic,300.0,27,72,,
+2020-21,Philadelphia 76ers,79.0,14,72,,
+2020-21,Portland Trail Blazers,111.0,11,72,,
+2020-21,Sacramento Kings,128.0,19,72,,
+2020-21,San Antonio Spurs,121.0,9,72,,
+2020-21,Toronto Raptors,229.0,18,72,,
+2020-21,Utah Jazz,51.0,9,72,,
+2020-21,Washington Wizards,137.0,12,72,,
+2021-22,Atlanta Hawks,177.0,18,82,,
+2021-22,Boston Celtics,156.0,22,82,,
+2021-22,Chicago Bulls,144.0,16,82,,
+2021-22,Cleveland Cavaliers,223.0,20,82,,
+2021-22,Dallas Mavericks,183.0,21,82,,
+2021-22,Denver Nuggets,128.0,13,82,,
+2021-22,Detroit Pistons,223.0,22,82,,
+2021-22,Golden State Warriors,138.0,7,82,,
+2021-22,Houston Rockets,163.0,12,82,,
+2021-22,Indiana Pacers,309.0,27,82,,
+2021-22,Los Angeles Clippers,204.0,17,82,,
+2021-22,Los Angeles Lakers,191.0,22,82,,
+2021-22,Memphis Grizzlies,120.0,15,82,,
+2021-22,Miami Heat,114.0,15,82,,
+2021-22,Milwaukee Bucks,117.0,23,82,,
+2021-22,Minnesota Timberwolves,82.0,10,82,,
+2021-22,New Orleans Pelicans,174.0,18,82,,
+2021-22,New York Knicks,136.0,16,82,,
+2021-22,Oklahoma City Thunder,395.0,25,82,,
+2021-22,Orlando Magic,183.0,15,82,,
+2021-22,Philadelphia 76ers,150.0,17,82,,
+2021-22,Portland Trail Blazers,329.0,26,82,,
+2021-22,Sacramento Kings,217.0,24,82,,
+2021-22,San Antonio Spurs,171.0,18,82,,
+2021-22,Toronto Raptors,175.0,16,82,,
+2021-22,Utah Jazz,99.0,17,82,,
+2021-22,Washington Wizards,283.0,23,82,,
+2022-23,Atlanta Hawks,145.0,11,82,,
+2022-23,Boston Celtics,81.0,10,82,,
+2022-23,Chicago Bulls,90.0,9,82,,
+2022-23,Cleveland Cavaliers,96.0,11,82,,
+2022-23,Dallas Mavericks,179.0,18,82,,
+2022-23,Denver Nuggets,138.0,12,82,,
+2022-23,Detroit Pistons,227.0,19,82,,
+2022-23,Golden State Warriors,103.0,11,82,,
+2022-23,Houston Rockets,125.0,11,82,,
+2022-23,Indiana Pacers,126.0,12,82,,
+2022-23,Los Angeles Clippers,192.0,17,82,,
+2022-23,Los Angeles Lakers,219.0,20,82,,
+2022-23,Memphis Grizzlies,252.0,13,82,,
+2022-23,Miami Heat,120.0,14,82,,
+2022-23,Milwaukee Bucks,130.0,15,82,,
+2022-23,Minnesota Timberwolves,170.0,14,82,,
+2022-23,New Orleans Pelicans,124.0,11,82,,
+2022-23,New York Knicks,120.0,9,82,,
+2022-23,Oklahoma City Thunder,121.0,12,82,,
+2022-23,Orlando Magic,144.0,17,82,,
+2022-23,Philadelphia 76ers,163.0,14,82,,
+2022-23,Portland Trail Blazers,292.0,21,82,,
+2022-23,Sacramento Kings,28.0,10,82,,
+2022-23,San Antonio Spurs,241.0,17,82,,
+2022-23,Toronto Raptors,143.0,14,82,,
+2022-23,Utah Jazz,207.0,19,82,,
+2022-23,Washington Wizards,133.0,18,82,,
+2023-24,Atlanta Hawks,114.0,14,82,,
+2023-24,Boston Celtics,84.0,11,82,,
+2023-24,Chicago Bulls,125.0,11,82,,
+2023-24,Cleveland Cavaliers,128.0,13,82,,
+2023-24,Dallas Mavericks,158.0,17,82,,
+2023-24,Denver Nuggets,42.0,10,82,,
+2023-24,Detroit Pistons,270.0,27,82,,
+2023-24,Golden State Warriors,91.0,9,82,,
+2023-24,Houston Rockets,124.0,9,82,,
+2023-24,Indiana Pacers,171.0,16,82,,
+2023-24,Los Angeles Clippers,138.0,13,82,,
+2023-24,Los Angeles Lakers,95.0,13,82,,
+2023-24,Memphis Grizzlies,307.0,32,82,,
+2023-24,Miami Heat,190.0,16,82,,
+2023-24,Milwaukee Bucks,83.0,15,82,,
+2023-24,Minnesota Timberwolves,46.0,12,82,,
+2023-24,New Orleans Pelicans,98.0,13,82,,
+2023-24,New York Knicks,165.0,21,82,,
+2023-24,Oklahoma City Thunder,27.0,12,82,,
+2023-24,Orlando Magic,114.0,11,82,,
+2023-24,Philadelphia 76ers,209.0,24,82,,
+2023-24,Portland Trail Blazers,256.0,18,82,,
+2023-24,Sacramento Kings,65.0,13,82,,
+2023-24,San Antonio Spurs,71.0,11,82,,
+2023-24,Toronto Raptors,256.0,29,82,,
+2023-24,Utah Jazz,173.0,16,82,,
+2023-24,Washington Wizards,97.0,18,82,,
+2024-25,Atlanta Hawks,248.0,17,82,,
+2024-25,Boston Celtics,119.0,12,82,,
+2024-25,Chicago Bulls,225.0,14,82,,
+2024-25,Cleveland Cavaliers,160.0,15,82,,
+2024-25,Dallas Mavericks,263.0,21,82,,
+2024-25,Denver Nuggets,87.0,10,82,,
+2024-25,Detroit Pistons,136.0,13,82,,
+2024-25,Golden State Warriors,228.0,17,82,,
+2024-25,Houston Rockets,98.0,14,82,,
+2024-25,Indiana Pacers,90.0,13,82,,
+2024-25,Los Angeles Clippers,139.0,17,82,,
+2024-25,Los Angeles Lakers,230.0,20,82,,
+2024-25,Memphis Grizzlies,106.0,12,82,,
+2024-25,Miami Heat,237.0,14,82,,
+2024-25,Milwaukee Bucks,133.0,17,82,,
+2024-25,Minnesota Timberwolves,48.0,13,82,,
+2024-25,New Orleans Pelicans,293.0,23,82,,
+2024-25,New York Knicks,83.0,14,82,,
+2024-25,Oklahoma City Thunder,125.0,12,82,,
+2024-25,Orlando Magic,136.0,10,82,,
+2024-25,Philadelphia 76ers,273.0,28,82,,
+2024-25,Portland Trail Blazers,129.0,11,82,,
+2024-25,Sacramento Kings,129.0,19,82,,
+2024-25,San Antonio Spurs,148.0,15,82,,
+2024-25,Toronto Raptors,232.0,19,82,,
+2024-25,Utah Jazz,191.0,14,82,,
+2024-25,Washington Wizards,176.0,20,82,,
+2025-26,Boston Celtics,,1,0,82.0,123.93386231765331
+2025-26,Dallas Mavericks,,1,0,80.0,106.05821696174732
+2025-26,Indiana Pacers,,1,0,82.0,121.77181267068988
+2025-26,Portland Trail Blazers,,1,0,0.0,0.0
+2025-26,BKN,,1,0,0.0,0.0
+2025-26,Cleveland Cavaliers,,1,0,30.0,38.443048681148916
+2025-26,Golden State Warriors,,1,0,0.0,0.0
+2025-26,Memphis Grizzlies,,1,0,30.0,39.828659961990134
+2025-26,Oklahoma City Thunder,,1,0,0.0,0.0

@@ -45,9 +45,8 @@ def scrape_basketball_reference_seasons(start_year=2015, end_year=2025):
                 ('totals-team', 'Tot_Team_'),
                 ('totals-opponent', 'Tot_Opp_'),
                 ('advanced-team', 'Adv_'),
-                # Uncomment if you want shooting stats
-                # ('shooting-team', 'Shoot_Team_'),
-                # ('shooting-opponent', 'Shoot_Opp_'),
+                ('shooting-team', 'Shoot_Team_'),
+                ('shooting-opponent', 'Shoot_Opp_'),
             ]
             
             # Scrape each table
@@ -58,31 +57,28 @@ def scrape_basketball_reference_seasons(start_year=2015, end_year=2025):
                 if df is not None:
                     # Check if Team column exists before adding prefix
                     if 'Team' not in df.columns:
-                        print(f"    ✗ No 'Team' column found. Columns: {df.columns.tolist()}")
+                        print(f"No 'Team' column found. Columns: {df.columns.tolist()}")
                         continue
                     
                     df = add_prefix_to_columns(df, prefix, exclude=['Team'])
                     season_tables[table_id] = df
-                    print(f"    ✓ Found {len(df)} teams, {len(df.columns)} columns")
                 else:
-                    print(f"    ✗ Table not found")
+                    print(f"Table not found")
             
             # Merge all tables for this season
             if season_tables:
                 season_df = merge_season_tables(season_tables, year)
                 if season_df is not None:
                     all_seasons_data.append(season_df)
-                    print(f"  ✓ Successfully scraped {year} ({len(season_df)} teams, {len(season_df.columns)} total columns)")
                 else:
-                    print(f"  ✗ Failed to merge tables for {year}")
+                    print(f"Failed to merge tables for {year}")
             else:
-                print(f"  ✗ No data found for {year}")
-            
-            # Be respectful - wait between requests
+                print(f"No data found for {year}")
+                
             time.sleep(3)
             
         except Exception as e:
-            print(f"  ✗ Error scraping {year}: {str(e)}")
+            print(f"Error scraping {year}: {str(e)}")
             import traceback
             traceback.print_exc()
             continue
@@ -90,24 +86,13 @@ def scrape_basketball_reference_seasons(start_year=2015, end_year=2025):
     # Combine all seasons
     if all_seasons_data:
         final_df = pd.concat(all_seasons_data, ignore_index=True)
-        print(f"\n✓ Total records: {len(final_df)}")
         return final_df
     else:
-        print("\n✗ No data collected")
+        print("Error combining season stats")
         return None
 
 
 def extract_table(soup, table_id):
-    """
-    Extract a specific table from the page (including from HTML comments)
-    
-    Parameters:
-    soup: BeautifulSoup object
-    table_id: ID of the table to extract
-    
-    Returns:
-    DataFrame or None
-    """
     try:
         # First, try to find the table directly in the HTML
         table = soup.find('table', {'id': table_id})
@@ -389,7 +374,7 @@ if __name__ == "__main__":
     print()
     
     # Scrape data from 2020-2025 seasons
-    df = scrape_basketball_reference_seasons(start_year=2021, end_year=2025)
+    df = scrape_basketball_reference_seasons(start_year=2018, end_year=2025)
     
     if df is not None:
         # Display sample
