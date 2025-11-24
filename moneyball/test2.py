@@ -4,12 +4,62 @@ import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import warnings
+import seaborn as sns
 
 warnings.filterwarnings('ignore')
 
-# =====================================================================
+def plot_feature_win_correlations(df, feature_cols, top_n=10):
+    # Compute correlations between each feature and actual wins
+    corr_series = df[feature_cols + ['Target_Wins']].corr()['Target_Wins'].drop('Target_Wins')
+
+    # Take absolute value for ranking importance
+    top_features = corr_series.abs().sort_values(ascending=False).head(top_n)
+    top_features = corr_series.loc[top_features.index]  # restore signed correlations
+
+    plt.figure(figsize=(6, top_n * 0.45 + 1))
+    sns.heatmap(
+        top_features.to_frame(),
+        annot=True,
+        cmap="viridis",
+        cbar=True,
+        fmt=".2f"
+    )
+    plt.title(f"Top {top_n} Feature Correlations with Team Wins")
+    plt.xlabel("Correlation with Wins")
+    plt.ylabel("Feature")
+    plt.tight_layout()
+    plt.show()
+
+def plot_feature_correlation_heatmap(df, feature_cols, filename="feature_correlation_heatmap.png"):
+    """Generate a heatmap showing correlations between all model input features."""
+    top_features = feature_cols[:10] if len(feature_cols) >= 10 else feature_cols
+    print(f"\nUsing {len(top_features)} features for heatmap:")
+    print(top_features)
+
+    # Step 2: build correlation matrix
+    corr_matrix = df[top_features].corr()
+
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(corr_matrix, annot=True, cmap="viridis", fmt=".2f")
+    plt.title(f"Top {len(top_features)} Correlated Features")
+    plt.tight_layout()
+    plt.savefig("top_feature_correlations.png")
+    plt.show()
+
+
+def print_top_correlations(df, feature_cols, top_k=5):
+    """Print strongest feature-to-feature correlations."""
+    corr = df[feature_cols].corr().abs()
+    corr_pairs = (
+        corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+            .stack()
+            .sort_values(ascending=False)
+    )
+
+    print(f"\nTop {top_k} strongest feature correlations:")
+    print(corr_pairs.head(top_k))
+
 # 1. LOAD & MERGE DATA
-# =====================================================================
 
 def load_and_prepare_data(csv_file='nba_team_stats_2020_2025.csv'):
     df = pd.read_csv(csv_file)
@@ -22,23 +72,21 @@ def load_and_prepare_data(csv_file='nba_team_stats_2020_2025.csv'):
     try:
         injury_df = pd.read_csv('nba_injury_data.csv')
         df = df.merge(injury_df, on=['Season', 'Team'], how='left')
-        print("✓ Injury data merged")
+        print("Injury data merged")
     except Exception as e:
-        print(f"⚠️  No injury data or merge failed: {e}")
+        print(f"No injury data or merge failed: {e}")
 
     # Merge roster continuity (optional)
     try:
         roster_df = pd.read_csv('nba_roster_continuity.csv')
         df = df.merge(roster_df, on=['Season', 'Team'], how='left')
-        print("✓ Roster continuity merged")
+        print("Roster continuity merged")
     except Exception as e:
-        print(f"⚠️  No roster data or merge failed: {e}")
+        print(f"No roster data or merge failed: {e}")
 
     return df
 
-# =====================================================================
 # 2. CREATE FUTURE SEASON ROWS (2025-26)
-# =====================================================================
 
 def create_2025_26_rows(df):
     latest_season = df['Season'].max()
@@ -50,12 +98,9 @@ def create_2025_26_rows(df):
     df_combined = pd.concat([df, df_2025_26], ignore_index=True)
     df_combined = df_combined.sort_values(['Team', 'Season']).reset_index(drop=True)
 
-    print("\n2025-26 rows created")
     return df_combined
 
-# =====================================================================
-# 3. CREATE LAGGED FEATURES (NO VEGAS USED FOR TRAINING)
-# =====================================================================
+# 3. CREATE LAGGED FEATURES (NO VEGAS IN FEATURES)
 
 def create_lagged_features(df):
     df = df.sort_values(['Team', 'Season']).reset_index(drop=True)
@@ -72,13 +117,22 @@ def create_lagged_features(df):
         'Adv_Defense Four Factors_eFG%', 'Adv_Defense Four Factors_DRB%',
     ]
 
-    # Injury-related features (if present)
-    if 'Games_Missed_Top3' in df.columns:
-        feature_cols.extend(['Games_Missed_Top3', 'Injury_Prone_Count', 'Top_Player_Games'])
+    # Injury-related features (Top-8, star-weighted)
+    if 'Games_Missed_Top8' in df.columns:
+        feature_cols.extend([
+            'Games_Missed_Top8',
+            'Star_Weighted_Games_Missed_Top8',
+            'Injury_Prone_Count',
+            'Top_Player_Games'
+        ])
 
     # Roster continuity features (if present)
     if 'Returning_Minutes_Pct' in df.columns:
-        feature_cols.extend(['Returning_Minutes_Pct', 'New_Players_Count'])
+        feature_cols.extend([
+            'Returning_Minutes_Pct',
+            'Star_Weighted_Continuity',
+            'New_Players_Count'
+        ])
 
     # Create lagged features by team
     for col in feature_cols:
@@ -86,7 +140,7 @@ def create_lagged_features(df):
             df[f'Prev_{col}'] = df.groupby('Team')[col].shift(1)
 
     # 2-year rolling averages for key advanced metrics
-    key_cols = ['Adv_W', 'Adv_ORtg', 'Adv_DRtg', 'Adv_NRtg', 'Adv_MOV', 'Adv_SRS']
+    key_cols = ['Adv_W', 'BR_ORtg_A', 'BR_DRtg_A', 'BR_NRtg_A', 'Adv_MOV', 'Adv_SRS']
     for col in key_cols:
         if col in df.columns:
             df[f'Avg2Y_{col}'] = (
@@ -101,25 +155,14 @@ def create_lagged_features(df):
     # Target = actual wins for that season
     df['Target_Wins'] = df['Adv_W']
 
-    print("Lagged features created")
     return df
 
-# =====================================================================
-# 4. ENGINEER HIGHER-LEVEL FEATURES
-# =====================================================================
+# 4. ENGINEER HIGHER-LEVEL FEATURES (INCL. PERCENTILES)
 
 def engineer_features(df):
     # Year-over-year trends
     df['Win_Change_1Y'] = df['Prev_Adv_W'] - df.groupby('Team')['Adv_W'].shift(2)
     df['NetRtg_Trend'] = df['Prev_Adv_NRtg'] - df.groupby('Team')['Adv_NRtg'].shift(2)
-
-    # Basic differentials
-    df['OffDef_Ratio'] = df['Prev_Adv_ORtg'] / df['Prev_Adv_DRtg'].replace(0, np.nan)
-    df['Prev_Point_Diff'] = df['Prev_PG_Team_PTS'] - df['Prev_PG_Opp_PTS']
-    df['Prev_eFG_Diff'] = (
-        df['Prev_Adv_Offense Four Factors_eFG%'] -
-        df['Prev_Adv_Defense Four Factors_eFG%']
-    )
 
     # 1. Pythagorean expected wins
     try:
@@ -139,64 +182,71 @@ def engineer_features(df):
     try:
         df['Prev_SOS'] = df['Prev_Adv_SRS'] - df['Prev_Adv_MOV']
         df['SOS_Trend'] = df['Prev_SOS'] - df.groupby('Team')['Adv_SRS'].shift(2)
-        df['SOS_Effect'] = df['Prev_Adv_NRtg'] + df['Prev_SOS']
+        df['SOS_Effect'] = df['BR_NRtg_A'] + df['Prev_SOS']
     except Exception:
         df['Prev_SOS'] = np.nan
         df['SOS_Trend'] = np.nan
         df['SOS_Effect'] = np.nan
 
-    # Injury-related engineered features
-    if 'Prev_Games_Missed_Top3' in df.columns:
-        df['Health_Score'] = 246 - df['Prev_Games_Missed_Top3']
-        df['Star_Healthy'] = (df['Prev_Top_Player_Games'] >= 60).astype(float)
-        df['Healthy_Elite'] = df['Prev_Adv_NRtg'] * (df['Health_Score'] / 246)
+    # Injury-related engineered features (Top-8 based)
+    if 'Prev_Games_Missed_Top8' in df.columns:
+        max_games_top8 = 8 * 82  # 8 players * 82 games
+        df['Health_Score'] = max_games_top8 - df['Prev_Games_Missed_Top8']
+        df['Healthy_Elite'] = df['BR_NRtg_A'] * (df['Health_Score'] / max_games_top8)
 
     # Roster continuity features
     if 'Prev_Returning_Minutes_Pct' in df.columns:
         continuity_pct = df['Prev_Returning_Minutes_Pct'] / 100.0
-        df['High_Continuity'] = (df['Prev_Returning_Minutes_Pct'] >= 70).astype(float)
-        df['Major_Turnover'] = (df['Prev_Returning_Minutes_Pct'] < 50).astype(float)
-        df['Elite_Continuity'] = df['Prev_Adv_NRtg'] * continuity_pct
-        df['Continuity_Adjusted_Wins'] = (
-            df['Prev_Adv_W'] * continuity_pct + 41 * (1 - continuity_pct)
-        )
-    
-    
+        df['Elite_Continuity'] = df['BR_NRtg_A'] * continuity_pct
 
-    print("Features engineered")
+    # Stats that vary heavily by season -> percentile normalize
+    percentile_cols = [
+        'BR_ORtg_A', 
+        'BR_DRtg_A', 
+        'BR_NRtg_A',
+        'Prev_Adv_SRS',
+        'Prev_Adv_MOV',
+        'Prev_PG_Team_PTS',
+        'Prev_PG_Opp_PTS',
+        'Prev_Pythag_Exp_Wins',
+        'Prev_Adv_Offense Four Factors_eFG%',
+        'Prev_Adv_Defense Four Factors_eFG%'
+    ]
+
+    for col in percentile_cols:
+        if col in df.columns:
+            # Percentile rank *within each season* (0–1)
+            df[f'{col}_pct'] = df.groupby('Season')[col].rank(pct=True)
+            # YoY change in percentile for each team
+            df[f'{col}_pct_delta'] = df.groupby('Team')[f'{col}_pct'].diff()
+
     return df
 
-# =====================================================================
-# 5. PREPARE TRAIN / TEST DATA (EXCLUDING VEGAS FROM FEATURES)
-# =====================================================================
+# 5. PREPARE FEATURE LIST (EXCLUDING VEGAS FROM FEATURES)
 
 def prepare_train_test_data(df, prediction_season='2025-26'):
-    # Base feature selection: all lagged/engineered features EXCEPT:
-    # - any Vegas-based columns
-    # - 'Prev_Adv_W' and 'Prev_Adv_L' (to avoid trivial leakage-like behavior)
+    # Base feature selection:
     feature_cols = [
         col for col in df.columns
         if (
-            (col.startswith('Prev_') or col.startswith('Avg') or
-             col in [
-                 'Win_Change_1Y', 'NetRtg_Trend', 'OffDef_Ratio',
-                 'Prev_Point_Diff', 'Prev_eFG_Diff',
-                 'Prev_Pythag_WinPct', 'Prev_Pythag_Exp_Wins', 'Prev_Pythag_WinDiff',
-                 'Prev_SOS', 'SOS_Trend', 'SOS_Effect',
-                 'Prev_Wins_Weighted',
-                 'Health_Score', 'Star_Healthy', 'Healthy_Elite',
-                 'High_Continuity', 'Major_Turnover', 'Elite_Continuity',
-                 'Continuity_Adjusted_Wins'
-             ])
-            and col not in ['Prev_Adv_W', 'Prev_Adv_L']
+            col.startswith('Prev_') or
+            col.startswith('Avg') or
+            col.endswith('_pct') or
+            col.endswith('_pct_delta') or
+            col in [
+                'Win_Change_1Y', 'NetRtg_Trend', 'OffDef_Ratio',
+                'Prev_Point_Diff', 'Prev_eFG_Diff',
+                'Prev_Pythag_WinPct', 'Prev_Pythag_Exp_Wins', 'Prev_Pythag_WinDiff',
+                'Prev_SOS', 'SOS_Trend', 'SOS_Effect',
+                'Health_Score',  'Healthy_Elite',
+                 'Elite_Continuity'
+            ]
         )
+        and col not in ['Prev_Adv_W', 'Prev_Adv_L']
     ]
 
     # Remove any Vegas-related columns from features to keep training clean
-    feature_cols = [
-        col for col in feature_cols
-        if 'Vegas' not in col
-    ]
+    feature_cols = [col for col in feature_cols if 'Vegas' not in col]
 
     # Filter out features with too many missing values
     feature_cols = [
@@ -204,57 +254,54 @@ def prepare_train_test_data(df, prediction_season='2025-26'):
         if col in df.columns and df[col].notna().sum() > 50
     ]
 
-    # Train only on 2022-23 and 2023-24
-    allowed_train_seasons = ['2022-23', '2023-24']
+    # We’ll train on 2022-23, 2023-24, 2024-25 for final model
+    allowed_train_seasons = ['2022-23', '2023-24', '2024-25']
 
     historical_data = df[
-        df['Season'].isin(allowed_train_seasons) &
-        df['Target_Wins'].notna()
+        df['Season'].isin(allowed_train_seasons)
+        & df['Target_Wins'].notna()
+        & df['Vegas_OU'].notna()
+        & df['Vegas_Error_Target'].notna()
     ].copy()
 
     prediction_data = df[df['Season'] == prediction_season].copy()
-
-    print(f"\nTraining seasons used: {allowed_train_seasons}")
-    print(f"Historical rows: {len(historical_data)} | Features: {len(feature_cols)}")
-    print("Some features:", feature_cols[:10])
-
+    
     return historical_data, prediction_data, feature_cols
 
-# =====================================================================
-# 6. XGBOOST TRAINING (WITH RECENCY + EXTREMES WEIGHTING)
-# =====================================================================
+# 6. XGBOOST TRAINING (RECENCY + “HARD CASES” WEIGHTING)
 
 def train_xgboost_model(X_train, y_train, season_train=None):
     # Base: all ones
     sample_weights = np.ones(len(y_train), dtype=float)
 
-    # Recency weighting: most recent (2023-24) gets boosted vs 2022-23
+    # Recency weighting: 2024-25 > 2023-24 > 2022-23
     if season_train is not None:
         season_train = np.array(season_train)
-        recent_mask = (season_train == '2023-24')
-        older_mask = (season_train == '2022-23')
+        mask_22 = (season_train == '2022-23')
+        mask_23 = (season_train == '2023-24')
+        mask_24 = (season_train == '2024-25')
 
-        sample_weights[older_mask] *= 1.0   # base
-        sample_weights[recent_mask] *= 3.0  # double weight for most recent season
+        sample_weights[mask_22] *= 1.0
+        sample_weights[mask_23] *= 2.0
+        sample_weights[mask_24] *= 5.0
 
-    # Extra weighting for extreme teams (very good / very bad),
-    # applied multiplicatively on top of recency.
-    sample_weights[y_train >= 55] *= 2.0
-    sample_weights[y_train >= 60] *= 3.0
-    sample_weights[y_train <= 25] *= 2.0
-    sample_weights[y_train <= 20] *= 3.0
+    # Extra weighting for large Vegas errors (we care more about
+    # learning how Vegas is wrong when it's off by a lot)
+    abs_err = np.abs(y_train)
+    sample_weights[abs_err >= 8] *= 1.5
+    sample_weights[abs_err >= 12] *= 2.0
 
     params = {
         'objective': 'reg:squarederror',
-        'max_depth': 20,
-        'learning_rate': 0.01,
-        'n_estimators': 1000,
-        'min_child_weight': 0.5,
-        'subsample': 0.75,
-        'colsample_bytree': 0.75,
-        'gamma': 0,
-        'reg_alpha': 0.1,
-        'reg_lambda': 0.5,
+        'max_depth': 6,
+        'learning_rate': 0.05,
+        'n_estimators': 100,
+        'min_child_weight': 4.0,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'gamma': 2.0,
+        'reg_alpha': 2.0,
+        'reg_lambda': 5.0,
         'random_state': 42,
         'n_jobs': -1
     }
@@ -263,22 +310,33 @@ def train_xgboost_model(X_train, y_train, season_train=None):
     model.fit(X_train, y_train, sample_weight=sample_weights, verbose=False)
     return model
 
-# =====================================================================
-# 7. VALIDATE ON 2024-25 (MODEL vs VEGAS vs BLEND)
-# =====================================================================
+# 7. OPTIONAL: VALIDATE ON 2024-25 (USING RESIDUAL MODEL)
 
 def validate_on_2024_25(df, feature_cols):
     print("\n" + "=" * 80)
-    print("2024-25 VALIDATION (MODEL vs VEGAS vs BLEND)")
+    print("2024-25 VALIDATION")
     print("=" * 80)
 
-    allowed_train_seasons = ['2022-23', '2023-24']
+    valid_training_seasons = [
+    '2017-18',
+    '2018-19',
+    '2022-23',
+    '2023-24',
+    '2024-25'
+    ]
 
     train_data = df[
-        df['Season'].isin(allowed_train_seasons) &
-        df['Target_Wins'].notna()
-    ]
-    test_data = df[df['Season'] == '2024-25'].copy()
+        df['Season'].isin(valid_training_seasons)
+        & df['Vegas_OU'].notna()
+        & df['Target_Wins'].notna()
+        & df['Vegas_Error_Target'].notna()
+    ].copy()
+
+    test_data = df[
+        (df['Season'] == '2024-25')
+        & df['Vegas_OU'].notna()
+        & df['Target_Wins'].notna()
+    ].copy()
 
     test_data_clean = test_data.dropna(subset=feature_cols)
     if len(test_data_clean) == 0:
@@ -286,64 +344,61 @@ def validate_on_2024_25(df, feature_cols):
         return pd.DataFrame(), 0, 0, 0
 
     X_train = train_data[feature_cols]
-    y_train = train_data['Target_Wins']
+    y_train = train_data['Vegas_Error_Target']
     X_test = test_data_clean[feature_cols]
-    y_test = test_data_clean['Target_Wins']
+    y_test_wins = test_data_clean['Target_Wins']
+    vegas_test = test_data_clean['Vegas_OU']
 
     model = train_xgboost_model(X_train, y_train, season_train=train_data['Season'].values)
-    y_pred = model.predict(X_test)
+    y_pred_error = model.predict(X_test)
 
-    mae = mean_absolute_error(y_test, y_pred)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-    r2 = r2_score(y_test, y_pred)
-    within_3 = np.mean(np.abs(y_test - y_pred) <= 3) * 100
-    within_5 = np.mean(np.abs(y_test - y_pred) <= 5) * 100
+    # Convert residual prediction back to wins
+    y_pred_wins = vegas_test.values + y_pred_error
 
-    print(f"MODEL -> MAE: {mae:.2f} | RMSE: {rmse:.2f} | R²: {r2:.3f}")
-    print(f"MODEL -> Within 3: {within_3:.1f}% | Within 5: {within_5:.1f}%")
+    mae = mean_absolute_error(y_test_wins, y_pred_wins)
+    rmse = np.sqrt(mean_squared_error(y_test_wins, y_pred_wins))
+    r2 = r2_score(y_test_wins, y_pred_wins)
+    within_3 = np.mean(np.abs(y_test_wins - y_pred_wins) <= 3) * 100
+    within_5 = np.mean(np.abs(y_test_wins - y_pred_wins) <= 5) * 100
 
-    # VEGAS-only performance (if available for that season)
-    if 'Vegas_OU' in test_data_clean.columns and test_data_clean['Vegas_OU'].notna().sum() > 0:
-        vegas = test_data_clean['Vegas_OU'].fillna(41)
-        mae_vegas = mean_absolute_error(y_test, vegas)
-        rmse_vegas = np.sqrt(mean_squared_error(y_test, vegas))
-        print(f"VEGAS -> MAE: {mae_vegas:.2f} | RMSE: {rmse_vegas:.2f}")
+    print(f"MODEL (Vegas + correction) -> MAE: {mae:.2f} | RMSE: {rmse:.2f} | R²: {r2:.3f}")
+    print(f"Within 3: {within_3:.1f}% | Within 5: {within_5:.1f}%")
 
-        # Blend: α * Vegas + (1-α) * Model
-        alpha = 0.7
-        blend = alpha * vegas.values + (1 - alpha) * y_pred
-        mae_blend = mean_absolute_error(y_test, blend)
-        rmse_blend = np.sqrt(mean_squared_error(y_test, blend))
-        print(f"BLEND (70% Vegas, 30% Model) -> MAE: {mae_blend:.2f} | RMSE: {rmse_blend:.2f}")
+    # VEGAS-only performance
+    mae_vegas = mean_absolute_error(y_test_wins, vegas_test)
+    rmse_vegas = np.sqrt(mean_squared_error(y_test_wins, vegas_test))
+    print(f"VEGAS ONLY -> MAE: {mae_vegas:.2f} | RMSE: {rmse_vegas:.2f}")
 
     comparison = pd.DataFrame({
         'Team': test_data_clean['Team'].values,
-        'Actual': y_test.values,
-        'Model_Pred': np.round(y_pred, 1),
-        'Error_Model': np.round(y_pred - y_test.values, 1)
+        'Actual': y_test_wins.values,
+        'Vegas_OU': vegas_test.values,
+        'Model_Pred': np.round(y_pred_wins, 1),
+        'Vegas_Error': np.round(vegas_test.values - y_test_wins.values, 1),
+        'Model_Error': np.round(y_pred_wins - y_test_wins.values, 1),
     })
 
-    if 'Vegas_OU' in test_data_clean.columns:
-        comparison['Vegas_OU'] = test_data_clean['Vegas_OU'].values
-        comparison['Error_Vegas'] = np.round(test_data_clean['Vegas_OU'].values - y_test.values, 1)
-
     comparison = comparison.sort_values('Actual', ascending=False).reset_index(drop=True)
-    print("\n" + comparison.head(10).to_string(index=False))
 
     return comparison, mae, rmse, r2
 
-# =====================================================================
-# 8. TIME-SERIES CROSS VALIDATION (MODEL ONLY)
-# =====================================================================
+# 8. TIME-SERIES CROSS VALIDATION (RESIDUAL MODEL)
 
-def time_series_cross_validation(df, feature_cols, n_splits=3):
+def time_series_cross_validation(df, feature_cols, n_splits=2):
     print("\n" + "=" * 80)
-    print("CROSS-VALIDATION (TIME-SERIES BY SEASON)")
+    print("CROSS-VALIDATION")
     print("=" * 80)
 
-    df_hist = df[df['Target_Wins'].notna()].copy()
-    seasons = sorted(df_hist['Season'].unique())
+    cv_seasons = ['2022-23', '2023-24', '2024-25']
 
+    df_hist = df[
+        df['Season'].isin(cv_seasons)
+        & df['Target_Wins'].notna()
+        & df['Vegas_OU'].notna()
+        & df['Vegas_Error_Target'].notna()
+    ].copy()
+
+    seasons = sorted(df_hist['Season'].unique())
     results = []
 
     for i in range(len(seasons) - n_splits, len(seasons)):
@@ -359,16 +414,20 @@ def time_series_cross_validation(df, feature_cols, n_splits=3):
         train_data = train_data[train_data['Team'] != 'League Average']
 
         X_train = train_data[feature_cols]
-        y_train = train_data['Target_Wins']
+        y_train = train_data['Vegas_Error_Target']
         X_test = test_data[feature_cols]
-        y_test = test_data['Target_Wins']
+        y_test_wins = test_data['Target_Wins']
+        vegas_test = test_data['Vegas_OU']
 
-        model = train_xgboost_model(X_train, y_train, season_train=train_data['Season'].values)
-        y_pred = model.predict(X_test)
+        model = train_xgboost_model(
+            X_train, y_train, season_train=train_data['Season'].values
+        )
+        y_pred_error = model.predict(X_test)
+        y_pred_wins = vegas_test.values + y_pred_error
 
-        mae = mean_absolute_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        within_3 = np.mean(np.abs(y_test - y_pred) <= 3) * 100
+        mae = mean_absolute_error(y_test_wins, y_pred_wins)
+        r2 = r2_score(y_test_wins, y_pred_wins)
+        within_3 = np.mean(np.abs(y_test_wins - y_pred_wins) <= 3) * 100
 
         results.append({
             'Season': test_season,
@@ -381,97 +440,87 @@ def time_series_cross_validation(df, feature_cols, n_splits=3):
 
     results_df = pd.DataFrame(results)
     if not results_df.empty:
-        print(f"\nAverage: MAE={results_df['MAE'].mean():.2f} | R²={results_df['R2'].mean():.3f}")
+        print(
+            f"\nAverage: MAE={results_df['MAE'].mean():.2f} | "
+            f"R²={results_df['R2'].mean():.3f}"
+        )
 
     return results_df
 
-# =====================================================================
-# 9. PREDICT 2025-26 USING MODEL + VEGAS BLEND
-# =====================================================================
+# 9. PREDICT 2025-26 USING VEGAS + RESIDUAL MODEL
 
-def predict_2025_26_season(df, feature_cols, vegas_weight=0.7):
+def predict_2025_26_season(df, feature_cols):
     print("\n" + "=" * 80)
-    print("2025-26 PREDICTIONS (BLEND: VEGAS + MODEL)")
+    print("2025-26 PREDICTIONS")
     print("=" * 80)
 
-    allowed_train_seasons = ['2022-23', '2023-24']
+    allowed_train_seasons = ['2022-23', '2023-24', '2024-25']
 
     train_data = df[
-        df['Season'].isin(allowed_train_seasons) &
-        df['Target_Wins'].notna()
+        df['Season'].isin(allowed_train_seasons)
+        & df['Target_Wins'].notna()
+        & df['Vegas_OU'].notna()
+        & df['Vegas_Error_Target'].notna()
     ].copy()
 
     # Predict only for real teams in 2025-26
-    predict_data = df[df['Season'] == '2025-26'].copy()
-    predict_data = predict_data[predict_data['Team'] != 'League Average'].copy()
+    predict_data = df[
+        (df['Season'] == '2025-26')
+        & (df['Team'] != 'League Average')
+    ].copy()
 
     if len(predict_data) == 0:
         print("No rows for 2025-26.")
         return None, None
 
-    X_train = train_data[feature_cols]
-    y_train = train_data['Target_Wins']
-    X_predict = predict_data[feature_cols].copy()
+    # Make sure they all have Vegas_OU
+    if 'Vegas_OU' not in predict_data.columns:
+        return None, None
 
-    # Train model on historical seasons (NO Vegas in features)
+    X_train = train_data[feature_cols]
+    y_train = train_data['Vegas_Error_Target']
+    X_predict = predict_data[feature_cols].copy()
+    vegas_2025_26 = predict_data['Vegas_OU'].values
+
+    # Train residual model
     model = train_xgboost_model(X_train, y_train, season_train=train_data['Season'].values)
-    xgb_predictions = model.predict(X_predict)
+    pred_error = model.predict(X_predict)
+
+    # Raw predicted wins = Vegas + correction
+    wins_raw = vegas_2025_26 + pred_error
 
     # --- Force league total wins to be correct ---
     n_teams = len(predict_data)
     target_total_wins = 41.0 * n_teams
 
-    model_raw = xgb_predictions.copy()
-    total_raw = model_raw.sum()
+    total_raw = wins_raw.sum()
     scale_model = target_total_wins / total_raw if total_raw > 0 else 1.0
-    xgb_predictions = model_raw * scale_model
+    wins_scaled = wins_raw * scale_model
 
     print(f"Model sum before fix: {total_raw:.1f}")
-    print(f"Model sum after fix:  {xgb_predictions.sum():.1f}")
-    print(f"League average now:   {xgb_predictions.mean():.2f}")
-
-    # Get current Vegas odds (used ONLY here, not in training)
-    if 'Vegas_OU' in predict_data.columns:
-        current_vegas = predict_data['Vegas_OU'].fillna(41).values
-    else:
-        current_vegas = np.full(len(predict_data), 41.0)
-
-    print(f"Using Vegas odds for {np.isfinite(current_vegas).sum()} teams")
-    if np.isfinite(current_vegas).sum() > 0:
-        print(f"Vegas range: {np.nanmin(current_vegas):.1f} - {np.nanmax(current_vegas):.1f}")
-
-    # Ensemble: vegas_weight * Vegas + (1 - vegas_weight) * Model
-    blend_raw = vegas_weight * current_vegas + (1 - vegas_weight) * xgb_predictions
-    total_blend_raw = blend_raw.sum()
-    scale_blend = target_total_wins / total_blend_raw if total_blend_raw > 0 else 1.0
-    final_predictions = blend_raw * scale_blend
-
-    print(f"Blend sum before fix: {total_blend_raw:.1f}")
-    print(f"Blend sum after fix:  {final_predictions.sum():.1f}")
-    print(f"League avg (blend):   {final_predictions.mean():.2f}")
-    print(f"Ensemble: {int(vegas_weight * 100)}% Vegas + {int((1 - vegas_weight) * 100)}% Model")
+    print(f"Model sum after fix:  {wins_scaled.sum():.1f}")
+    print(f"League average now:   {wins_scaled.mean():.2f}")
 
     results = pd.DataFrame({
         'Team': predict_data['Team'].values,
-        'Predicted_Wins': np.round(final_predictions).astype(int),
+        'Vegas_OU_2025_26': vegas_2025_26,
+        'Model_Only_Wins': np.round(wins_raw),
+        'Predicted_Wins': np.round(wins_scaled).astype(int),
         'Previous_Wins': predict_data['Prev_Adv_W'].values,
-        'Vegas_OU_2025_26': current_vegas,
-        'Model_Only': np.round(xgb_predictions, 1),
-        'Change_from_Prev': np.round(final_predictions - predict_data['Prev_Adv_W'].values, 1),
-        'Prev_NetRtg': np.round(predict_data['Prev_Adv_NRtg'].values, 1)
+        'Predicted_Correction': np.round(pred_error, 1),
+        'Vegas_Error_if_unchanged': np.round(vegas_2025_26 - predict_data['Prev_Adv_W'].values, 1),
+        'Change_from_Prev': np.round(wins_scaled - predict_data['Prev_Adv_W'].values, 1),
+        'BR_NRtg_A': np.round(predict_data['BR_NRtg_A'].values, 1)
     })
 
     results = results.sort_values('Predicted_Wins', ascending=False).reset_index(drop=True)
     results.index = results.index + 1
 
-    print(results[['Team', 'Predicted_Wins', 'Vegas_OU_2025_26', 'Model_Only', 'Previous_Wins']].to_string())
-    print(f"\nProjected Playoff Teams (>41 wins): {len(results[results['Predicted_Wins'] > 41])}")
+    print(results[['Team', 'Predicted_Wins', 'Vegas_OU_2025_26', 'Model_Only_Wins', 'Previous_Wins']].to_string())
 
     return results, model
 
-# =====================================================================
 # 10. FEATURE IMPORTANCE
-# =====================================================================
 
 def analyze_feature_importance(model, feature_cols, top_n=15):
     importance_df = pd.DataFrame({
@@ -486,13 +535,11 @@ def analyze_feature_importance(model, feature_cols, top_n=15):
 
     return importance_df
 
-# =====================================================================
 # 11. MAIN PIPELINE
-# =====================================================================
 
 def main():
     print("\n" + "=" * 80)
-    print("NBA 2025-26 WIN PREDICTION - NO VEGAS LEAK")
+    print("NBA 2025-26 WIN PREDICTION")
     print("=" * 80)
 
     # 1. Load core team stats and optional injuries/roster continuity
@@ -504,21 +551,21 @@ def main():
 
     df = create_2025_26_rows(df)
 
-    # 2. Merge Vegas odds (for evaluation & blending ONLY)
-    print("\n" + "=" * 80)
-    print("MERGING VEGAS ODDS")
-    print("=" * 80)
 
     try:
         vegas_df = pd.read_csv('nba_vegas_odds_clean.csv')
-        print(f"Vegas CSV loaded: {len(vegas_df)} records")
-        print(f"Vegas seasons: {sorted(vegas_df['Season'].unique())}")
 
+        # -----------------------------------------------
+        # FILTER TO ONLY MODERN VEGAS SEASONS (IMPORTANT)
+        # -----------------------------------------------
+        allowed_vegas_seasons = ['2022-23', '2023-24', '2024-25', '2025-26']
+        vegas_df = vegas_df[vegas_df['Season'].isin(allowed_vegas_seasons)]
+
+        # Check mismatched team names
         df_teams = set(df['Team'].unique())
         vegas_teams = set(vegas_df['Team'].unique())
 
         if df_teams != vegas_teams:
-            print("\n⚠️  Team name mismatch detected")
             only_in_df = df_teams - vegas_teams
             only_in_vegas = vegas_teams - df_teams
             if only_in_df:
@@ -535,33 +582,32 @@ def main():
         else:
             vegas_total = df['Vegas_OU'].notna().sum()
             vegas_2025_26 = df[df['Season'] == '2025-26']['Vegas_OU'].notna().sum()
-            print("✓ Vegas odds merged successfully")
-            print(f"  Total with Vegas: {vegas_total}/{len(df)} records")
-            print(f"  2025-26 with Vegas: {vegas_2025_26} teams")
 
     except FileNotFoundError:
-        print("✗ nba_vegas_odds_clean.csv not found! Model will still run without blending.")
+        print("File not found.")
     except Exception as e:
-        print(f"✗ Error merging Vegas: {e}")
+        print(f"Error")
 
     # 3. Create lagged & engineered features
     df = create_lagged_features(df)
     df = engineer_features(df)
 
-    # 4. Diagnostics: Vegas coverage & correlation vs actual wins (historical)
-    print("\n" + "=" * 80)
-    print("VEGAS DIAGNOSTICS")
-    print("=" * 80)
+    # 4. Build Vegas residual target
+    if 'Vegas_OU' in df.columns:
+        df['Vegas_Error_Target'] = df['Target_Wins'] - df['Vegas_OU']
+    else:
+        df['Vegas_Error_Target'] = np.nan
 
     if 'Vegas_OU' in df.columns:
         vegas_coverage = df.groupby('Season')['Vegas_OU'].apply(lambda x: x.notna().sum())
-        print("Vegas coverage by season:")
-        print(vegas_coverage)
 
-        historical = df[df['Target_Wins'].notna()].copy()
+        historical = df[
+            df['Target_Wins'].notna()
+            & df['Season'].isin(['2022-23', '2023-24', '2024-25'])
+        ].copy()
+
         if historical['Vegas_OU'].notna().sum() > 0:
             corr = historical[['Vegas_OU', 'Target_Wins']].corr().iloc[0, 1]
-            print(f"\nVegas_OU vs Actual Wins correlation: {corr:.3f}")
 
             mae_vegas = mean_absolute_error(
                 historical['Target_Wins'].values,
@@ -571,42 +617,50 @@ def main():
                 historical['Target_Wins'].values,
                 historical['Vegas_OU'].fillna(41).values
             ))
-            print(f"Vegas alone (historical) -> MAE: {mae_vegas:.2f} | RMSE: {rmse_vegas:.2f}")
+            print(f"Vegas alone (historical, 2022-23 to 2024-25) -> MAE: {mae_vegas:.2f} | RMSE: {rmse_vegas:.2f}")
     else:
         print("No Vegas_OU column found after merge.")
 
-    # 5. Prepare training/prediction sets and feature list (NO Vegas columns)
+    # 6. Prepare training/prediction sets and feature list
     historical_data, _, feature_cols = prepare_train_test_data(df)
+    
+    plot_feature_correlation_heatmap(df, feature_cols, filename="model_feature_correlation.png")
+    print_top_correlations(df, feature_cols, top_k=5)
+    
+    plot_feature_win_correlations(df, feature_cols, top_n=10)
 
-    # 6. Validate on 2024-25 (model vs Vegas vs blend)
-    comp_2024, mae_2024, rmse_2024, r2_2024 = validate_on_2024_25(df, feature_cols)
+    # Optional: still run validation, but remove noisy prints
+    val_2024, mae_2024, rmse_2024, r2_2024 = validate_on_2024_25(df, feature_cols)
 
-    # 7. Time-series cross-validation (model only)
-    cv_results = time_series_cross_validation(historical_data, feature_cols, n_splits=3)
+    # 7. Time-series cross-validation (residual model)
+    cv_results = time_series_cross_validation(df, feature_cols, n_splits=2)
 
-    # 8. Predict 2025-26 (blend model + Vegas)
-    preds_2025_26, final_model = predict_2025_26_season(df, feature_cols, vegas_weight=0.7)
+    # 8. Predict 2025-26 (Vegas + learned correction)
+    preds_2025_26, final_model = predict_2025_26_season(df, feature_cols)
 
     # 9. Feature importance
     if final_model is not None:
         analyze_feature_importance(final_model, feature_cols, top_n=15)
 
-    # 10. Save outputs
+    # 10. Save predictions
     if preds_2025_26 is not None:
         preds_2025_26.to_csv('nba_2025_26_predictions.csv', index=False)
         print("\n✓ Saved: nba_2025_26_predictions.csv")
 
-    if len(comp_2024) > 0:
-        comp_2024.to_csv('2024_25_validation.csv', index=False)
-        print("✓ Saved: 2024_25_validation.csv")
+    # 11. Save CV results
+    if cv_results is not None and not cv_results.empty:
+        cv_results.to_csv('cross_validation_results.csv', index=False)
+        print("✓ Saved: cross_validation_results.csv")
 
-    # 11. Summary
+    # 12. Summary
     print("\n" + "=" * 80)
     print("SUMMARY")
     print("=" * 80)
-    print(f"2024-25 MODEL: MAE={mae_2024:.2f} | RMSE={rmse_2024:.2f} | R²={r2_2024:.3f}")
-    if not cv_results.empty:
-        print(f"CV Average: MAE={cv_results['MAE'].mean():.2f} | R²={cv_results['R2'].mean():.3f}")
+
+    if cv_results is not None and not cv_results.empty:
+        print(f"CV Average: MAE={cv_results['MAE'].mean():.2f} | "
+              f"R²={cv_results['R2'].mean():.3f} | "
+              f"Within 3={cv_results['Within_3'].mean():.1f}%")
 
     return df, preds_2025_26, final_model, cv_results
 

@@ -65,7 +65,6 @@ df['Shooting_Score'] = df[shooting_zscore].mean(axis=1)
 df['PR_Score'] = df[pr_zscore].mean(axis=1)
 
 
-
 #PROJECTED SALARY CALCULATION SECTION
 #Calculate average annual increase in salary cap to use to calculate projected salaries
 salary_cap['Salary Cap'] = salary_cap['Salary Cap'].replace({'\$':'', ',':''}, regex=True).astype(float)

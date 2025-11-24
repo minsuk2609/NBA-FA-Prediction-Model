@@ -136,187 +136,188 @@ def load_player_impact_data(
 
 def scrape_roster_continuity(start_year=2015, end_year=2025, star_df=None):
     """
-    Scrape roster continuity data (% of minutes returning),
-    and add star-weighted continuity using StarScore.
-
-    Uses Basketball-Reference for historical seasons.
-    For the 2025-26 season (year == 2026), uses nba_roster_2025_26_bgm.csv
-    which contains opening-night rosters exported from Basketball-GM.
+    Scrape roster continuity data:
+      A) Top-8 returning minutes (star-weighted)
+      B) Full-roster returning minutes %
     """
 
     print("=" * 80)
-    print("SCRAPING ROSTER CONTINUITY (WITH STAR WEIGHTING)")
+    print("SCRAPING ROSTER CONTINUITY (TOP-8 STAR-WEIGHTED + FULL-ROSTER)")
     print("=" * 80)
 
     if star_df is None:
         raise ValueError("star_df (player StarScore data) must be provided")
 
-    # Ensure clean keys
     star_df = star_df.copy()
     star_df["Player"] = star_df["Player"].astype(str).str.strip()
     star_df["Season"] = star_df["Season"].astype(str).str.strip()
 
     continuity_data = []
-    bgm_roster_df = None  # Only used for 2025-26
+    bgm_roster_df = None
 
     for year in range(start_year + 1, end_year + 1):
-        # "season" is the upcoming season label, e.g. "2015-16"
-        season = f"{year - 1}-{str(year)[-2:]}"
-        # Previous season label, e.g. "2014-15"
-        prev_season = f"{year - 2}-{str(year - 1)[-2:]}"
-        print(f"\nProcessing {season} (previous season = {prev_season})...")
+
+        season = f"{year - 1}-{str(year)[-2:]}"        # e.g. 2024-25
+        prev_season = f"{year - 2}-{str(year - 1)[-2:]}"  # e.g. 2023-24
+
+        print(f"\nProcessing {season} (prev = {prev_season})...")
 
         for team_name, abbrev in TEAM_ABBREVS.items():
             try:
-                # -------------------------------
-                # 1) Previous season roster (Basketball-Reference)
-                # -------------------------------
+                # ---------------------------------------------------------
+                # 1) PREVIOUS SEASON ROSTER
+                # ---------------------------------------------------------
                 url_prev = f"https://www.basketball-reference.com/teams/{abbrev}/{year-1}.html"
-                response_prev = requests.get(url_prev, headers={'User-Agent': 'Mozilla/5.0'})
+                resp_prev = requests.get(url_prev, headers={'User-Agent': 'Mozilla/5.0'})
                 time.sleep(2)
 
-                if response_prev.status_code != 200:
-                    print(f"  ⚠️  Failed to load prev roster for {team_name} {year-1}")
+                if resp_prev.status_code != 200:
+                    print(f"  ⚠️ Failed prev roster: {team_name} {year-1}")
                     continue
 
-                tables_prev = pd.read_html(response_prev.content)
+                tables_prev = pd.read_html(resp_prev.content)
                 roster_prev = None
-
-                for table in tables_prev:
-                    if 'Player' in table.columns and 'MP' in table.columns:
-                        roster_prev = table
+                for t in tables_prev:
+                    if "Player" in t.columns and "MP" in t.columns:
+                        roster_prev = t
                         break
-
                 if roster_prev is None:
-                    print(f"  ⚠️  No roster table for {team_name} {year-1}")
                     continue
 
-                roster_prev = roster_prev[roster_prev['Player'] != 'Player']
-                roster_prev['Player'] = roster_prev['Player'].astype(str).str.strip()
+                roster_prev = roster_prev[roster_prev["Player"] != "Player"]
+                roster_prev["Player"] = roster_prev["Player"].astype(str).str.strip()
 
                 prev_players = {}
-                for _, row in roster_prev.iterrows():
-                    player = str(row['Player']).strip()
+                for _, r in roster_prev.iterrows():
                     try:
-                        minutes = float(row['MP'])
-                        prev_players[player] = minutes
-                    except Exception:
+                        prev_players[r["Player"]] = float(r["MP"])
+                    except:
                         continue
 
                 if not prev_players:
-                    print(f"  ⚠️  No valid minutes for {team_name} {year-1}")
                     continue
 
-                # Turn into DataFrame
-                prev_df = pd.DataFrame([
-                    {"Player": p, "Minutes": m} for p, m in prev_players.items()
-                ])
+                prev_df = pd.DataFrame([{"Player": p, "Minutes": m} for p, m in prev_players.items()])
 
-                # Merge in StarScore from previous season
-                star_prev = star_df[star_df["Season"] == prev_season][["Player", "StarScore"]]
-                prev_df = prev_df.merge(star_prev, on="Player", how="left").fillna({"StarScore": 0.0})
+                # Merge StarScore
+                stars_prev = star_df[star_df["Season"] == prev_season][["Player", "StarScore"]]
+                prev_df = prev_df.merge(stars_prev, on="Player", how="left").fillna({"StarScore": 0.0})
 
-                # Keep ONLY top 8 players by StarScore, tie-breaker minutes
+                # TOP 8 PLAYERS
                 prev_df = prev_df.sort_values(["StarScore", "Minutes"], ascending=False)
                 prev_df_top8 = prev_df.head(8).reset_index(drop=True)
 
-                total_prev_minutes = prev_df_top8["Minutes"].sum()
+                total_prev_minutes_top8 = prev_df_top8["Minutes"].sum()
                 prev_df_top8["StarWeight"] = prev_df_top8["Minutes"] * (1.0 + prev_df_top8["StarScore"])
                 total_prev_star_minutes = prev_df_top8["StarWeight"].sum()
 
-                if total_prev_minutes == 0:
-                    print(f"  ⚠️  Zero total prev minutes for {team_name} {prev_season}")
-                    continue
-
-                # -------------------------------
-                # 2) Current season roster
-                # -------------------------------
+                # ---------------------------------------------------------
+                # 2) CURRENT SEASON ROSTER
+                # ---------------------------------------------------------
                 if year == 2026:
-                    # Use BGM CSV: nba_roster_2025_26_bgm.csv
+                    # From BGM
                     if bgm_roster_df is None:
                         bgm_roster_df = pd.read_csv("nba_roster_2025_26_bgm.csv")
                         bgm_roster_df["Player"] = bgm_roster_df["Player"].astype(str).str.strip()
                         bgm_roster_df["Team"] = bgm_roster_df["Team"].astype(str).str.strip()
 
-                    filter_team_name = team_name
-                    if team_name == "Los Angeles Clippers":
-                        # In BGM file you used "LA Clippers"
-                        filter_team_name = "LA Clippers"
+                    filter_name = "LA Clippers" if team_name == "Los Angeles Clippers" else team_name
+                    curr_roster_list = bgm_roster_df[bgm_roster_df["Team"] == filter_name]["Player"].tolist()
 
-                    curr_roster_list = bgm_roster_df[
-                        bgm_roster_df["Team"] == filter_team_name
-                    ]["Player"].tolist()
                 else:
-                    # Scrape Basketball-Reference for current season
+                    # Scrape BBRef
                     url_curr = f"https://www.basketball-reference.com/teams/{abbrev}/{year}.html"
-                    response_curr = requests.get(url_curr, headers={'User-Agent': 'Mozilla/5.0'})
-                    time.sleep()
+                    resp_curr = requests.get(url_curr, headers={'User-Agent': 'Mozilla/5.0'})
+                    time.sleep(2)
 
-                    if response_curr.status_code != 200:
-                        print(f"  ⚠️  Failed to load current roster for {team_name} {year}")
+                    if resp_curr.status_code != 200:
                         continue
 
-                    tables_curr = pd.read_html(response_curr.content)
+                    tables_curr = pd.read_html(resp_curr.content)
                     roster_curr = None
-
-                    for table in tables_curr:
-                        if 'Player' in table.columns:
-                            roster_curr = table
+                    for t in tables_curr:
+                        if "Player" in t.columns:
+                            roster_curr = t
                             break
 
                     if roster_curr is None:
                         continue
 
-                    roster_curr = roster_curr[roster_curr['Player'] != 'Player']
-                    roster_curr['Player'] = roster_curr['Player'].astype(str).str.strip()
-                    curr_roster_list = roster_curr['Player'].tolist()
+                    roster_curr = roster_curr[roster_curr["Player"] != "Player"]
+                    roster_curr["Player"] = roster_curr["Player"].astype(str).str.strip()
+                    curr_roster_list = roster_curr["Player"].tolist()
 
                 if not curr_roster_list:
-                    print(f"  ⚠️  No current roster list for {team_name} {season}")
                     continue
 
-                # -------------------------------
-                # 3) Calculate continuity (plain + star-weighted)
-                # -------------------------------
-                returning_minutes = 0.0
+                # ---------------------------------------------------------
+                # 3A) TOP-8 CONTINUITY (star-weighted)
+                # ---------------------------------------------------------
+                returning_minutes_top8 = 0.0
                 returning_star_minutes = 0.0
-                new_players = 0
+                new_players_top8 = 0
 
                 for player in curr_roster_list:
                     row = prev_df_top8[prev_df_top8["Player"] == player]
                     if not row.empty:
                         mins = float(row["Minutes"].iloc[0])
-                        star_weight = float(row["StarWeight"].iloc[0])
-                        returning_minutes += mins
-                        returning_star_minutes += star_weight
+                        starw = float(row["StarWeight"].iloc[0])
+                        returning_minutes_top8 += mins
+                        returning_star_minutes += starw
                     else:
-                        new_players += 1
+                        new_players_top8 += 1
 
-                plain_pct = (returning_minutes / total_prev_minutes * 100.0) if total_prev_minutes > 0 else 0.0
-                if total_prev_star_minutes > 0:
-                    star_pct = (returning_star_minutes / total_prev_star_minutes * 100.0)
-                else:
-                    star_pct = plain_pct
+                pct_top8 = (returning_minutes_top8 / total_prev_minutes_top8 * 100.0) \
+                    if total_prev_minutes_top8 > 0 else 0.0
 
+                pct_star = (returning_star_minutes / total_prev_star_minutes * 100.0) \
+                    if total_prev_star_minutes > 0 else pct_top8
+
+                # ---------------------------------------------------------
+                # 3B) FULL-ROSTER CONTINUITY (OPTION B)
+                # ---------------------------------------------------------
+                full_prev_minutes = prev_df["Minutes"].sum()
+                returning_minutes_full = 0.0
+
+                for player in curr_roster_list:
+                    row = prev_df[prev_df["Player"] == player]
+                    if not row.empty:
+                        returning_minutes_full += float(row["Minutes"].iloc[0])
+
+                pct_full_roster = (returning_minutes_full / full_prev_minutes * 100.0) \
+                    if full_prev_minutes > 0 else 0.0
+
+                # ---------------------------------------------------------
+                # SAVE ROW
+                # ---------------------------------------------------------
                 continuity_data.append({
                     "Season": season,
                     "Team": team_name,
-                    "Returning_Minutes_Pct": round(plain_pct, 2),
-                    "Star_Weighted_Continuity": round(star_pct, 2),
-                    "New_Players_Count": new_players,
-                    "Total_Prev_Minutes": round(total_prev_minutes, 1)
+
+                    # TOP-8
+                    "Returning_Minutes_Top8_Pct": round(pct_top8, 2),
+                    "Star_Weighted_Continuity": round(pct_star, 2),
+                    "New_Players_Top8": new_players_top8,
+
+                    # FULL roster
+                    "Returning_Minutes_FullRoster_Pct": round(pct_full_roster, 2),
+
+                    "Total_Prev_Minutes_Top8": round(total_prev_minutes_top8, 1),
+                    "Total_Prev_Minutes_FullRoster": round(full_prev_minutes, 1)
                 })
 
-                print(f"  ✓ {team_name}: {plain_pct:.1f}% mins returning | {star_pct:.1f}% star-weighted")
+                print(f"  ✓ {team_name}: Top8={pct_top8:.1f}% | Star={pct_star:.1f}% | FullRoster={pct_full_roster:.1f}%")
 
             except Exception as e:
                 print(f"  ✗ Error with {team_name} {season}: {e}")
                 continue
 
     df = pd.DataFrame(continuity_data)
-    df.to_csv('nba_roster_continuity.csv', index=False)
-    print(f"\n✓ Saved: nba_roster_continuity.csv ({len(df)} records)")
+    df.to_csv("nba_roster_continuity.csv", index=False)
+
+    print(f"\n✓ Saved: nba_roster_continuity.csv ({len(df)} rows)")
     return df
+
 
 
 # ============================================
