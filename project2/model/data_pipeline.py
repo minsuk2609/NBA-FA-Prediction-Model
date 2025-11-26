@@ -46,7 +46,7 @@ def lagged_features(df_raw):
         if c in df_raw.columns:
             df_raw["Prev_"+c] = df_raw.groupby("Team")[c].shift(1)
 
-    klist = ["Adv_W","BR_ORtg_A_x","BR_DRtg_A_x","BR_NRtg_A_x","Adv_MOV","Adv_SRS"]
+    klist = ["Adv_W","BR_ORtg_A","BR_DRtg_A","BR_NRtg_A","Adv_MOV","Adv_SRS"]
     for c in klist:
         if c in df_raw.columns:
             df_raw["Avg2Y_"+c] = (df_raw.groupby("Team")[c].transform(lambda s: s.shift(1).rolling(2, min_periods=1).mean()))
@@ -72,7 +72,7 @@ def engineer_features(df_raw):
 
 
     df_raw["Prev_SOS"] = df_raw["Prev_Adv_SRS"] - df_raw["Prev_Adv_MOV"]
-    df_raw["SOS_Effect"] = df_raw["BR_NRtg_A_x"] + df_raw["Prev_SOS"]
+    df_raw["SOS_Effect"] = df_raw["BR_NRtg_A"] + df_raw["Prev_SOS"]
     df_raw["Prev_SOS"] = np.nan
     df_raw["SOS_Effect"] = np.nan
 
@@ -80,14 +80,14 @@ def engineer_features(df_raw):
     if "Prev_Games_Missed_Top8" in df_raw.columns:
         maxg = 8*82
         df_raw["Health_Score"] = maxg - df_raw["Prev_Games_Missed_Top8"]
-        df_raw["Low_Injury"] = df_raw["BR_NRtg_A_x"] * (df_raw["Health_Score"]/maxg)
+        df_raw["Low_Injury"] = df_raw["BR_NRtg_A"] * (df_raw["Health_Score"]/maxg)
 
     if "Prev_Returning_Minutes_Pct" in df_raw.columns:
         pct = df_raw["Prev_Returning_Minutes_Pct"] / 100.0
-        df_raw["High_Continuity"] = df_raw["BR_NRtg_A_x"] * pct
+        df_raw["High_Continuity"] = df_raw["BR_NRtg_A"] * pct
 
 
-    pct_cols = ["BR_ORtg_A_x","BR_DRtg_A_x","BR_NRtg_A_x","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%"]
+    pct_cols = ["BR_ORtg_A","BR_DRtg_A","BR_NRtg_A","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%"]
 
     for c in pct_cols:
         if c in df_raw.columns:

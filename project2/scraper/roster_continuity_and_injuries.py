@@ -20,7 +20,7 @@ TEAM_ABBREVS = {
 ABBR_TO_TEAM = {v: k for k, v in TEAM_ABBREVS.items()}
 
 
-def load_player_impact_data(adv_file, lebron_file):
+def load_data(adv_file, lebron_file):
     adv = pd.read_csv(adv_file)
     adv["Player"] = adv["Player"].astype(str).str.strip()
     adv["Season"] = adv["Season"].astype(str).str.strip()
@@ -40,12 +40,14 @@ def load_player_impact_data(adv_file, lebron_file):
 
     adv_main = adv.groupby(["Season", "Player"], as_index=False, group_keys=False).apply(pick_main_row).reset_index(drop=True)
 
+
     leb = pd.read_csv(lebron_file)
     leb["Player"] = leb["Player"].astype(str).str.strip()
     leb["Season"] = leb["Season"].astype(str).str.strip()
     leb = leb[["Season", "Player", "LEBRON WAR", "LEBRON"]]
 
     players = adv_main.merge(leb, on=["Season", "Player"], how="left")
+
 
     for col in ["WS/48", "BPM", "VORP", "LEBRON WAR", "LEBRON"]:
         players[col] = pd.to_numeric(players[col], errors="coerce").fillna(0.0)
@@ -58,11 +60,14 @@ def load_player_impact_data(adv_file, lebron_file):
         else:
             players[m + "_scaled"] = 0.0
 
+
     players["StarScore"] = players[[m + "_scaled" for m in metrics]].mean(axis=1)
     return players[["Season", "Player", "StarScore", "MP"]]
 
 
-def scrape_roster_continuity(start_year, end_year, star_df):
+
+
+def scrape_roster(start_year, end_year, star_df):
     star_df = star_df.copy()
     star_df["Player"] = star_df["Player"].astype(str).str.strip()
     star_df["Season"] = star_df["Season"].astype(str).str.strip()
@@ -96,10 +101,7 @@ def scrape_roster_continuity(start_year, end_year, star_df):
 
             prev_players = {}
             for _, r in roster_prev.iterrows():
-                try:
-                    prev_players[r["Player"]] = float(r["MP"])
-                except:
-                    pass
+                prev_players[r["Player"]] = float(r["MP"])
 
             if not prev_players:
                 continue
@@ -171,12 +173,12 @@ def scrape_roster_continuity(start_year, end_year, star_df):
                 "Total_Prev_Minutes_FullRoster": round(full_prev_min, 1)
             })
 
-    df = pd.DataFrame(continuity_data)
-    df.to_csv("../data/nba_roster_continuity.csv", index=False)
-    return df
+    df_continuity = pd.DataFrame(continuity_data)
+    df_continuity.to_csv("../data/nba_roster_continuity.csv", index=False)
+    return df_continuity
 
 
-def scrape_injury_data(start_year, end_year, star_df):
+def scrape_injury(start_year, end_year, star_df):
     star_df = star_df.copy()
     star_df["Player"] = star_df["Player"].astype(str).str.strip()
     star_df["Season"] = star_df["Season"].astype(str).str.strip()
@@ -280,19 +282,16 @@ def scrape_injury_data(start_year, end_year, star_df):
 
     injury_data.extend(preseason_rows)
 
-    df = pd.DataFrame(injury_data)
-    df.to_csv("../data/nba_injury_data.csv", index=False)
-    return df
+    df_continuity = pd.DataFrame(injury_data)
+    df_continuity.to_csv("../data/nba_injury_data.csv", index=False)
+    return df_continuity
 
 
 def main():
-    star_df = load_player_impact_data(
-        adv_file="../data/nba_advanced_stats_2015_2025.csv",
-        lebron_file="../data/nba_2014_2025_LEBRON.csv"
-    )
+    star_df = load_data(adv_file="../data/nba_advanced_stats_2015_2025.csv",lebron_file="../data/nba_2014_2025_LEBRON.csv")
 
-    scrape_roster_continuity(start_year=2015, end_year=2025, star_df=star_df)
-    scrape_injury_data(start_year=2015, end_year=2025, star_df=star_df)
+    scrape_roster(start_year=2015, end_year=2025, star_df=star_df)
+    scrape_injury(start_year=2015, end_year=2025, star_df=star_df)
 
 
 if __name__ == "__main__":

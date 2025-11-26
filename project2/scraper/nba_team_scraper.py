@@ -29,14 +29,14 @@ def scrape_basketball_reference_seasons(start_year, end_year):
         ]
 
         for table_id, prefix in table_configs:
-            df = extract_table(soup, table_id)
+            df_team = extract_table(soup, table_id)
 
-            if df is not None:
-                if 'Team' not in df.columns:
-                    print(f"No team column: {df.columns.tolist()}")
+            if df_team is not None:
+                if 'Team' not in df_team.columns:
+                    print(f"No team column: {df_team.columns.tolist()}")
                     continue
-                df = add_prefix_to_columns(df, prefix, exclude=['Team'])
-                season_tables[table_id] = df
+                df_team = add_prefix_to_columns(df_team, prefix, exclude=['Team'])
+                season_tables[table_id] = df_team
 
         if season_tables:
             season_df = merge_season_tables(season_tables, year)
@@ -67,68 +67,68 @@ def extract_table(soup, table_id):
     if table is None:
         return None
 
-    df = pd.read_html(StringIO(str(table)))[0]
-    df = clean_dataframe(df)
-    return df
+    df_team = pd.read_html(StringIO(str(table)))[0]
+    df_team = clean_dataframe(df_team)
+    return df_team
 
 
-def clean_dataframe(df):
-    if isinstance(df.columns, pd.MultiIndex):
+def clean_dataframe(df_team):
+    if isinstance(df_team.columns, pd.MultiIndex):
         new_cols = []
-        for col in df.columns:
+        for col in df_team.columns:
             parts = [str(x) for x in col if str(x) != 'nan' and 'Unnamed' not in str(x)]
             new_cols.append('_'.join(parts) if parts else '')
-        df.columns = new_cols
+        df_team.columns = new_cols
 
-    df.columns = [str(col).strip() for col in df.columns]
+    df_team.columns = [str(col).strip() for col in df_team.columns]
 
-    if "Team" in df.columns:
-        df["Team"] = df["Team"].astype(str)
-        df = df[df["Team"] != "Team"]
-        df = df[df["Team"] != ""]
-        df = df[df["Team"] != "nan"]
-        df["Team"] = df["Team"].str.replace("*", "", regex=False).str.strip()
+    if "Team" in df_team.columns:
+        df_team["Team"] = df_team["Team"].astype(str)
+        df_team = df_team[df_team["Team"] != "Team"]
+        df_team = df_team[df_team["Team"] != ""]
+        df_team = df_team[df_team["Team"] != "nan"]
+        df_team["Team"] = df_team["Team"].str.replace("*", "", regex=False).str.strip()
 
-    drop_cols = [c for c in df.columns if c == "Rk" or c.startswith("Unnamed")]
-    df = df.drop(drop_cols, axis=1, errors="ignore")
+    drops = [c for c in df_team.columns if c == "Rk" or c.startswith("Unnamed")]
+    df_team = df_team.drop(drops, axis=1, errors="ignore")
 
-    for col in df.columns:
+    for col in df_team.columns:
         if col == "Team":
             continue
-        if not isinstance(df[col], pd.Series):
+        if not isinstance(df_team[col], pd.Series):
             continue
 
-        if df[col].dtype == 'O' and df[col].apply(lambda x: isinstance(x, (dict, list, pd.DataFrame))).any():
+        if df_team[col].dtype == 'O' and df_team[col].apply(lambda x: isinstance(x, (dict, list, pd.DataFrame))).any():
             continue
 
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df_team[col] = pd.to_numeric(df_team[col], errors='coerce')
 
-    df = df.reset_index(drop=True)
-    return df
+    df_team = df_team.reset_index(drop=True)
+    return df_team
 
 
 
-def add_prefix_to_columns(df, prefix, exclude=None):
+def add_prefix_to_columns(df_team, prefix, exclude=None):
     if exclude is None:
         exclude = []
 
     new_columns = {
         col: (prefix + col if col not in exclude else col)
-        for col in df.columns
+        for col in df_team.columns
     }
-    return df.rename(columns=new_columns)
+    return df_team.rename(columns=new_columns)
 
 
 def merge_season_tables(tables_dict, year):
     merged_df = None
 
-    for df in tables_dict.values():
-        if df is not None and not df.empty:
-            if 'Team' not in df.columns:
+    for df_team in tables_dict.values():
+        if df_team is not None and not df_team.empty:
+            if 'Team' not in df_team.columns:
                 continue
 
-            merged_df = df.copy() if merged_df is None else pd.merge(
-                merged_df, df, on='Team', how='outer'
+            merged_df = df_team.copy() if merged_df is None else pd.merge(
+                merged_df, df_team, on='Team', how='outer'
             )
 
     if merged_df is not None:
@@ -141,9 +141,9 @@ def merge_season_tables(tables_dict, year):
     return merged_df
 
 if __name__ == "__main__":
-    df = scrape_basketball_reference_seasons(start_year=2018, end_year=2025)
-    if df is not None:
+    df_team = scrape_basketball_reference_seasons(start_year=2018, end_year=2025)
+    if df_team is not None:
         try:
-            df.to_csv("../data/nba_team_stats_2020_2025.csv", index=False)
+            df_team.to_csv("../data/nba_team_stats_2020_2025.csv", index=False)
         except Exception as e:
             print(f"Error saving file: {e}")

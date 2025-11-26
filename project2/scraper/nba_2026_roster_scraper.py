@@ -40,15 +40,15 @@ def load_roster(json_path):
         rows.append({"Player": name, "Team": TEAM_MAP_FULL[tid]})
 
 
-    df = pd.DataFrame(rows)
-    df = df.sort_values(["Team", "Player"]).reset_index(drop=True)
-    return df
+    df_roster = pd.DataFrame(rows)
+    df_roster = df_roster.sort_values(["Team", "Player"]).reset_index(drop=True)
+    return df_roster
 
 def main():
-    df = load_roster("../data/2025-26.NBA.Roster.json")
-    if df is not None:
+    df_roster = load_roster("../data/2025-26.NBA.Roster.json")
+    if df_roster is not None:
         try:
-            df.to_csv("../data/nba_roster_2025_26_bgm.csv", index=False)
+            df_roster.to_csv("../data/nba_roster_2025_26_bgm.csv", index=False)
         except Exception as e:
             print(f"Error saving CSV: {e}")
 

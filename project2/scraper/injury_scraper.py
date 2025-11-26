@@ -43,10 +43,10 @@ def parse_injuries(json_path):
 
 
 def main():
-    df = parse_injuries("../data/2025-26.NBA.Roster.json")
-    if df is not None:
+    df_injury = parse_injuries("../data/2025-26.NBA.Roster.json")
+    if df_injury is not None:
         try:
-            df.to_csv("../data/nba_injuries_2025_26_preseason.csv", index=False)
+            df_injury.to_csv("../data/nba_injuries_2025_26_preseason.csv", index=False)
         except Exception as e:
             print(f"Error saving CSV: {e}")
 

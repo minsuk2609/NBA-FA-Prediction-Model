@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 import time
 
-def scrape_advanced_stats(season_years):
+def scrape_adv(season_years):
     records = []
 
     for year in season_years:
@@ -25,9 +25,6 @@ def scrape_advanced_stats(season_years):
                 adv = df
                 break
 
-        if adv is None:
-            print(f"No advanced stats table found for {season_label}")
-            continue
 
         adv = adv[adv["Player"] != "Player"]
         adv["Player"] = adv["Player"].astype(str).str.strip()
@@ -71,7 +68,7 @@ def scrape_advanced_stats(season_years):
 
 
 if __name__ == "__main__":
-    df_stats = scrape_advanced_stats(range(2017, 2025))
+    df_stats = scrape_adv(range(2017, 2025))
     try:
         df_stats.to_csv("../data/nba_advanced_stats_2015_2025.csv", index=False)
     except Exception as e:
