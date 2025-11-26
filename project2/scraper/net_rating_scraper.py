@@ -20,7 +20,6 @@ def find_team_column(df):
     for col in df.columns:
         if "Team" in col or "team" in col:
             return col
-    raise ValueError("Team column not found")
 
 def scrape_bbr_team_ratings(bbr_year):
     url = f"https://www.basketball-reference.com/leagues/NBA_{bbr_year}_ratings.html"
@@ -65,13 +64,10 @@ def merge_ratings_into_main_csv(csv_path):
 
     all_ratings = []
     for season in sorted(df_main["Season"].unique()):
-        try:
-            bbr_year = season_to_bbr_year(season)
-            ratings_df = scrape_bbr_team_ratings(bbr_year)
-            ratings_df["Season"] = season
-            all_ratings.append(ratings_df)
-        except Exception as e:
-            print(f"Error scraping {season}: {e}")
+        bbr_year = season_to_bbr_year(season)
+        ratings_df = scrape_bbr_team_ratings(bbr_year)
+        ratings_df["Season"] = season
+        all_ratings.append(ratings_df)
 
     ratings_all = pd.concat(all_ratings, ignore_index=True)
 

@@ -25,26 +25,21 @@ def parse_injuries(json_path):
             if not injury or not isinstance(injury, dict):
                 continue
 
-            try:
-                injury_type = injury.get("type", "Unknown")
-                games_remaining = injury.get("gamesRemaining", 0)
-                if games_remaining > 82:
-                    games_remaining = 82
 
-                injury_rows.append({
-                    "Player": player_name,
-                    "Team": team_name,
-                    "Injury": injury_type,
-                    "Games_Missed": games_remaining
-                })
-            except Exception as e:
-                print(f"Error processing {player_name}: {e}")
+            injury_type = injury.get("type", "Unknown")
+            games_remaining = injury.get("gamesRemaining", 0)
+            if games_remaining > 82:
+                games_remaining = 82
 
-    try:
-        return pd.DataFrame(injury_rows)
-    except Exception as e:
-        print(f"Error building DataFrame: {e}")
-        return None
+            injury_rows.append({
+                "Player": player_name,
+                "Team": team_name,
+                "Injury": injury_type,
+                "Games_Missed": games_remaining
+            })
+
+
+    return pd.DataFrame(injury_rows)
 
 
 def main():

@@ -1,4 +1,4 @@
-PLAYER,TEAM,GP,Poss,Freq%,PPP,PTS,FGM,FGA,FG%,eFG%,"FT Freq%","TOV Freq%","SF Freq%","And One Freq%","Score Freq%",Percentile
+PLAYER,TEAM,GP,Poss,Freq%,PPP,PTS,FGM,FGA,FG%,eFG%,"FTFreq%","TOVFreq%","SFFreq%","And OneFreq%","ScoreFreq%",Percentile
 Trae Young,ATL,76,12.3,47.5,0.94,11.5,3.6,8.8,41.7,50.8,12.5,17.9,10.2,1.7,40.3,70.9
 Shai Gilgeous-Alexander,OKC,76,9.6,34.2,1.10,10.6,3.7,7.2,51.0,55.3,16.5,11.4,14.7,3.6,51.4,94.4
 Cade Cunningham,DET,70,11.1,40.7,0.93,10.3,4.0,8.6,46.4,51.8,8.5,16.2,7.6,1.4,42.6,68.2

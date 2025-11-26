@@ -4,150 +4,118 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+def load_data(csv_name):
+    df_load = pd.read_csv("data/" + csv_name)
 
-def load_data(csv_file):
-    df = pd.read_csv(f"data/{csv_file}")
+    inj = pd.read_csv("data/nba_injury_data.csv")
+    df_load = df_load.merge(inj, on=["Season","Team"], how="left")
 
-    try:
-        injury_df = pd.read_csv("data/nba_injury_data.csv")
-        df = df.merge(injury_df, on=['Season', 'Team'], how='left')
-    except Exception:
-        print("Injury data not found, proceeding without it.")
+    rc = pd.read_csv("data/nba_roster_continuity.csv")
+    df_load = df_load.merge(rc, on=["Season","Team"], how="left")
 
-    try:
-        roster_df = pd.read_csv("data/nba_roster_continuity.csv")
-        df = df.merge(roster_df, on=['Season', 'Team'], how='left')
-    except Exception:
-        print("Roster continuity data not found, proceeding without it.")
-
-    return df
+    return df_load
 
 
-def create_rows(df):
-    latest_season = df['Season'].max()
-    teams = df[df['Season'] == latest_season]['Team'].unique()
-    df_2025_26 = pd.DataFrame([{'Season': '2025-26', 'Team': t} for t in teams])
-    df = pd.concat([df, df_2025_26], ignore_index=True)
-    return df.sort_values(['Team', 'Season']).reset_index(drop=True)
+def create_rows(df_raw):
+    prev_season = df_raw["Season"].max()
+    tm_list = df_raw[df_raw["Season"]==prev_season]["Team"].unique()
+
+    temp_rows = []
+    for t in tm_list:
+        temp_rows.append({"Season":"2025-26","Team":t})
+
+    df_new = pd.concat([df_raw, pd.DataFrame(temp_rows)], ignore_index=True)
+    df_new = df_new.sort_values(["Team","Season"]).reset_index(drop=True)
+    return df_new
 
 
-def lagged_features(df):
-    df = df.sort_values(['Team', 'Season']).reset_index(drop=True)
+def lagged_features(df_raw):
+    df_raw = df_raw.sort_values(["Team","Season"]).reset_index(drop=True)
 
-    base_features = [
-        'PG_Team_PTS', 'PG_Opp_PTS', 'PG_Team_FG%', 'PG_Team_3P%', 'PG_Team_TRB',
-        'PG_Team_AST', 'PG_Team_STL', 'PG_Team_TOV', 'PG_Opp_FG%', 'PG_Opp_3P%',
-        'PG_Opp_TOV', 'Adv_W', 'Adv_MOV', 'Adv_SRS', 'Adv_ORtg', 'Adv_DRtg',
-        'Adv_NRtg', 'Adv_TS%', 'Adv_3PAr', 'Adv_Offense Four Factors_eFG%',
-        'Adv_Offense Four Factors_TOV%', 'Adv_Defense Four Factors_eFG%',
-        'Adv_Defense Four Factors_DRB%',
+    feats = ["PG_Team_PTS","PG_Opp_PTS","PG_Team_FG%",
+        "PG_Team_3P%","PG_Team_TRB","PG_Team_AST","PG_Team_STL","PG_Team_TOV","PG_Opp_FG%",
+        "PG_Opp_3P%","PG_Opp_TOV","Adv_W","Adv_MOV","Adv_SRS","Adv_ORtg","Adv_DRtg","Adv_NRtg","Adv_TS%",
+        "Adv_3PAr","Adv_Offense Four Factors_eFG%",
+        "Adv_Offense Four Factors_TOV%",
+        "Adv_Defense Four Factors_eFG%","Adv_Defense Four Factors_DRB%"
     ]
+    feats.extend(["Games_Missed_Top8","Star_Weighted_Games_Missed_Top8","Injury_Prone_Count","Top_Player_Games"])
+    feats.extend(["Returning_Minutes_Pct","Star_Weighted_Continuity","New_Players_Count"])
 
-    if 'Games_Missed_Top8' in df.columns:
-        base_features += [
-            'Games_Missed_Top8', 'Star_Weighted_Games_Missed_Top8',
-            'Injury_Prone_Count', 'Top_Player_Games'
-        ]
+    for c in feats:
+        if c in df_raw.columns:
+            df_raw["Prev_"+c] = df_raw.groupby("Team")[c].shift(1)
 
-    if 'Returning_Minutes_Pct' in df.columns:
-        base_features += [
-            'Returning_Minutes_Pct', 'Star_Weighted_Continuity',
-            'New_Players_Count'
-        ]
+    klist = ["Adv_W","BR_ORtg_A_x","BR_DRtg_A_x","BR_NRtg_A_x","Adv_MOV","Adv_SRS"]
+    for c in klist:
+        if c in df_raw.columns:
+            df_raw["Avg2Y_"+c] = (df_raw.groupby("Team")[c].transform(lambda s: s.shift(1).rolling(2, min_periods=1).mean()))
 
-    for col in base_features:
-        if col in df.columns:
-            df[f'Prev_{col}'] = df.groupby('Team')[col].shift(1)
+    if "Vegas_OU" in df_raw.columns:
+        df_raw["Prev_Vegas_OU"] = df_raw.groupby("Team")["Vegas_OU"].shift(1)
 
-    key_cols = ['Adv_W', 'BR_ORtg_A', 'BR_DRtg_A', 'BR_NRtg_A', 'Adv_MOV', 'Adv_SRS']
-    for col in key_cols:
-        if col in df.columns:
-            df[f'Avg2Y_{col}'] = (
-                df.groupby('Team')[col]
-                .transform(lambda s: s.shift(1).rolling(2, min_periods=1).mean())
-            )
-
-    if 'Vegas_OU' in df.columns:
-        df['Prev_Vegas_OU'] = df.groupby('Team')['Vegas_OU'].shift(1)
-
-    df['Target_Wins'] = df['Adv_W']
-    return df
+    df_raw["Target_Wins"] = df_raw["Adv_W"]
+    return df_raw
 
 
-def engineer_features(df):
-    try:
-        x = 14
-        pf = df['Prev_PG_Team_PTS']
-        pa = df['Prev_PG_Opp_PTS']
-        df['Prev_Pythag_WinPct'] = (pf ** x) / ((pf ** x) + (pa ** x))
-        df['Prev_Pythag_Exp_Wins'] = df['Prev_Pythag_WinPct'] * 82
-        df['Prev_Pythag_WinDiff'] = df['Prev_Pythag_Exp_Wins'] - df['Prev_Adv_W']
-    except Exception:
-        df['Prev_Pythag_WinPct'] = np.nan
-        df['Prev_Pythag_Exp_Wins'] = np.nan
-        df['Prev_Pythag_WinDiff'] = np.nan
+def engineer_features(df_raw):
+    xval = 14
+    p_for = df_raw["Prev_PG_Team_PTS"]
+    p_against = df_raw["Prev_PG_Opp_PTS"]
 
-    try:
-        df['Prev_SOS'] = df['Prev_Adv_SRS'] - df['Prev_Adv_MOV']
-        df['SOS_Effect'] = df['BR_NRtg_A'] + df['Prev_SOS']
-    except Exception:
-        df['Prev_SOS'] = np.nan
-        df['SOS_Effect'] = np.nan
-
-    if 'Prev_Games_Missed_Top8' in df.columns:
-        max_games = 8 * 82
-        df['Health_Score'] = max_games - df['Prev_Games_Missed_Top8']
-        df['Low_Injury'] = df['BR_NRtg_A'] * (df['Health_Score'] / max_games)
-
-    if 'Prev_Returning_Minutes_Pct' in df.columns:
-        pct = df['Prev_Returning_Minutes_Pct'] / 100.0
-        df['High_Continuity'] = df['BR_NRtg_A'] * pct
-
-    percentile_cols = [
-        'BR_ORtg_A', 'BR_DRtg_A', 'BR_NRtg_A', 'Prev_Adv_SRS', 'Prev_Adv_MOV',
-        'Prev_PG_Team_PTS', 'Prev_PG_Opp_PTS', 'Prev_Pythag_Exp_Wins',
-        'Prev_Adv_Offense Four Factors_eFG%',
-        'Prev_Adv_Defense Four Factors_eFG%'
-    ]
-
-    for col in percentile_cols:
-        if col in df.columns:
-            df[f'{col}_pct'] = df.groupby('Season')[col].rank(pct=True)
-            df[f'{col}_pct_delta'] = df.groupby('Team')[f'{col}_pct'].diff()
-
-    return df
+    df_raw["Prev_Pythag_WinPct"] = (p_for**xval) / ((p_for**xval)+(p_against**xval))
+    df_raw["Prev_Pythag_Exp_Wins"] = df_raw["Prev_Pythag_WinPct"] * 82
+    df_raw["Prev_Pythag_WinDiff"] = df_raw["Prev_Pythag_Exp_Wins"] - df_raw["Prev_Adv_W"]
+    df_raw["Prev_Pythag_WinPct"] = np.nan
+    df_raw["Prev_Pythag_Exp_Wins"] = np.nan
+    df_raw["Prev_Pythag_WinDiff"] = np.nan
 
 
-def train_data(df, prediction_season):
-    feature_cols = [
-        col for col in df.columns
-        if (
-            col.startswith('Prev_')
-            or col.startswith('Avg')
-            or col.endswith('_pct')
-            or col.endswith('_pct_delta')
-            or col in [
-                'OffDef_Ratio', 'Prev_Point_Diff', 'Prev_eFG_Diff',
-                'Prev_Pythag_WinPct', 'Prev_Pythag_Exp_Wins',
-                'Prev_Pythag_WinDiff', 'Prev_SOS', 'SOS_Effect',
-                'Health_Score', 'Low_Injury', 'High_Continuity'
-            ]
-        )
-        and col not in ['Prev_Adv_W', 'Prev_Adv_L']
-    ]
+    df_raw["Prev_SOS"] = df_raw["Prev_Adv_SRS"] - df_raw["Prev_Adv_MOV"]
+    df_raw["SOS_Effect"] = df_raw["BR_NRtg_A_x"] + df_raw["Prev_SOS"]
+    df_raw["Prev_SOS"] = np.nan
+    df_raw["SOS_Effect"] = np.nan
 
-    feature_cols = [c for c in feature_cols if 'Vegas' not in c]
-    feature_cols = [c for c in feature_cols if df[c].notna().sum() > 50]
 
-    allowed = ['2022-23', '2023-24', '2024-25']
+    if "Prev_Games_Missed_Top8" in df_raw.columns:
+        maxg = 8*82
+        df_raw["Health_Score"] = maxg - df_raw["Prev_Games_Missed_Top8"]
+        df_raw["Low_Injury"] = df_raw["BR_NRtg_A_x"] * (df_raw["Health_Score"]/maxg)
 
-    historical = df[
-        df['Season'].isin(allowed)
-        & df['Target_Wins'].notna()
-        & df['Vegas_OU'].notna()
-        & df['Vegas_Error_Target'].notna()
-    ].copy()
+    if "Prev_Returning_Minutes_Pct" in df_raw.columns:
+        pct = df_raw["Prev_Returning_Minutes_Pct"] / 100.0
+        df_raw["High_Continuity"] = df_raw["BR_NRtg_A_x"] * pct
 
-    prediction = df[df['Season'] == prediction_season].copy()
 
-    return historical, prediction, feature_cols
+    pct_cols = ["BR_ORtg_A_x","BR_DRtg_A_x","BR_NRtg_A_x","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%"]
+
+    for c in pct_cols:
+        if c in df_raw.columns:
+            df_raw[c+"_pct"] = df_raw.groupby("Season")[c].rank(pct=True)
+            df_raw[c+"_pct_delta"] = df_raw.groupby("Team")[c+"_pct"].diff()
+
+    return df_raw
+
+
+def train_data(df_raw, pred_season):
+    all_feats = []
+    
+    for col in df_raw.columns:
+        if (col.startswith("Prev_") or
+            col.startswith("Avg") or
+            col.endswith("_pct") or
+            col.endswith("_pct_delta") or
+            col in ["OffDef_Ratio","Prev_Point_Diff","Prev_eFG_Diff","Prev_Pythag_WinPct","Prev_Pythag_Exp_Wins",
+                    "Prev_Pythag_WinDiff","Prev_SOS","SOS_Effect","Health_Score","Low_Injury","High_Continuity"]):
+            if col not in ["Prev_Adv_W","Prev_Adv_L"]:
+                all_feats.append(col)
+
+    all_feats = [c for c in all_feats if "Vegas" not in c]
+    all_feats = [c for c in all_feats if df_raw[c].notna().sum() > 50]
+
+    season_window = ["2022-23","2023-24","2024-25"]
+    hist = df_raw[df_raw["Season"].isin(season_window) & df_raw["Target_Wins"].notna()& df_raw["Vegas_OU"].notna() & df_raw["Vegas_Error_Target"].notna()].copy()
+
+    pred = df_raw[df_raw["Season"] == pred_season].copy()
+
+    return hist, pred, all_feats

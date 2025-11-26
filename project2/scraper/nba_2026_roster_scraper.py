@@ -29,26 +29,20 @@ def load_roster(json_path):
     rows = []
 
     for p in players:
-        try:
-            if not isinstance(p, dict):
-                continue
-            name = p.get("name")
-            tid = p.get("tid")
-            if name is None or tid is None:
-                continue
-            if tid not in TEAM_MAP_FULL:
-                continue
-            rows.append({"Player": name, "Team": TEAM_MAP_FULL[tid]})
-        except Exception as e:
-            print(f"Error processing player entry: {e}")
+        if not isinstance(p, dict):
+            continue
+        name = p.get("name")
+        tid = p.get("tid")
+        if name is None or tid is None:
+            continue
+        if tid not in TEAM_MAP_FULL:
+            continue
+        rows.append({"Player": name, "Team": TEAM_MAP_FULL[tid]})
 
-    try:
-        df = pd.DataFrame(rows)
-        df = df.sort_values(["Team", "Player"]).reset_index(drop=True)
-        return df
-    except Exception as e:
-        print(f"Error building DataFrame: {e}")
-        return None
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values(["Team", "Player"]).reset_index(drop=True)
+    return df
 
 def main():
     df = load_roster("../data/2025-26.NBA.Roster.json")

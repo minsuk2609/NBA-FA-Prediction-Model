@@ -17,11 +17,7 @@ def scrape_advanced_stats(season_years):
 
         time.sleep(0.7)
 
-        try:
-            df_list = pd.read_html(resp.content)
-        except Exception as e:
-            print(f"Error reading HTML for {season_label}: {e}")
-            continue
+        df_list = pd.read_html(resp.content)
 
         adv = None
         for df in df_list:
@@ -46,14 +42,10 @@ def scrape_advanced_stats(season_years):
 
         adv["TeamFix"] = adv["TeamFix"].astype(str).str.strip()
 
-        try:
-            adv_sorted = adv.sort_values(["Player", "TeamFix"])
-            adv_final = adv_sorted.groupby("Player", as_index=False, group_keys=False).apply(
-                lambda g: g[g["TeamFix"] == "TOT"] if "TOT" in g["TeamFix"].values else g.iloc[[0]]
-            )
-        except Exception as e:
-            print(f"Error processing TOT rows for {season_label}: {e}")
-            continue
+        adv_sorted = adv.sort_values(["Player", "TeamFix"])
+        adv_final = adv_sorted.groupby("Player", as_index=False, group_keys=False).apply(
+            lambda g: g[g["TeamFix"] == "TOT"] if "TOT" in g["TeamFix"].values else g.iloc[[0]]
+        )
 
         adv_final["Season"] = season_label
         adv_final.rename(columns={"WS/48 ": "WS/48"}, inplace=True)

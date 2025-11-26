@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, r2_score
 
 from model.data_pipeline import load_data, create_rows, lagged_features, engineer_features, train_data
-from model.model import fitModel, run_cv, model_io
+from model.create_model import fit_model, run_cv, model_io
 from model.predict import predict
+
 
 def eval_2024(df, feat_cols, model_path):
 
@@ -24,18 +25,14 @@ def eval_2024(df, feat_cols, model_path):
     vegas_vals = test_df['Vegas_OU']
     actuals = test_df['Target_Wins']
 
-    model = fitModel(xtrain, ytrain, season_train=train_df['Season'])
+    model = fit_model(xtrain, ytrain, season_train=train_df['Season'])
     pred_err = model.predict(xtest)
     pred_wins = vegas_vals.values + pred_err
 
     mae = mean_absolute_error(actuals, pred_wins)
     r2 = r2_score(actuals, pred_wins)
 
-    out = pd.DataFrame({
-        'Team': test_df['Team'].values,
-        'Actual_Wins': actuals.values,
-        'Predicted_Wins': np.round(pred_wins,1)
-    }).sort_values('Actual_Wins', ascending=False)
+    out = pd.DataFrame({'Team': test_df['Team'].values, 'Actual_Wins': actuals.values, 'Predicted_Wins': np.round(pred_wins,1)}).sort_values('Actual_Wins', ascending=False)
 
     os.makedirs("results", exist_ok=True)
 
@@ -51,8 +48,7 @@ def eval_2024(df, feat_cols, model_path):
     tx = df_plot['value'].max() * 0.6
     ty = len(out) - 1
 
-    plt.text(tx, ty, f"MAE: {mae:.3f}\nR2: {r2:.3f}", fontsize=14,
-        bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
+    plt.text(tx, ty, f"MAE: {mae:.3f}\nR2: {r2:.3f}", fontsize=14, bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
 
     plt.tight_layout()
     out_path = "results/validate_2024_25.png"
@@ -69,11 +65,7 @@ def heat_corr(df, fcols):
 
     corr = df[fcols].corr()
 
-    corr_flat = (
-        corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
-        .stack()
-        .reset_index()
-    )
+    corr_flat = (corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool)).stack().reset_index())
     corr_flat.columns = ['Feature1', 'Feature2', 'Correlation']
     corr_flat['AbsCorr'] = corr_flat['Correlation'].abs()
 
@@ -91,14 +83,11 @@ def heat_corr(df, fcols):
     plt.savefig("results/feature_correlation_heatmap.png", dpi=300)
     plt.close()
 
-
 def win_corr_plot(df, fcols, topn):
     os.makedirs("results", exist_ok=True)
 
     corr_vals = df[fcols].corrwith(df['Target_Wins']).abs().sort_values(ascending=False)
     top_corrs = corr_vals.head(topn)
-    
-    print(top_corrs)
 
     plt.figure(figsize=(14,10))
     sns.barplot(x=top_corrs.values, y=top_corrs.index)
@@ -111,46 +100,51 @@ def win_corr_plot(df, fcols, topn):
 
 
 def main():
-    df = load_data("nba_team_stats_2020_2025.csv")
-    df = df[df['Team'] != 'League Average'].copy()
-    df = create_rows(df)
+    df_main = load_data("nba_team_stats_2020_2025.csv")
+    df_main = df_main[df_main['Team'] != 'League Average'].copy()
+    df_main = create_rows(df_main)
+
+
 
     try:
         vegas = pd.read_csv("data/nba_vegas_odds_clean.csv")
         vegas = vegas[vegas['Season'].isin(['2022-23','2023-24','2024-25','2025-26'])]
-        df = df.merge(vegas, on=['Season','Team'], how='left')
+        df_main = df_main.merge(vegas, on=['Season','Team'], how='left')
     except Exception:
         print("No vegas file")
 
-    df = lagged_features(df)
-    df = engineer_features(df)
+    df_main = lagged_features(df_main)
+    df_main = engineer_features(df_main)
 
-    if 'Vegas_OU' in df.columns:
-        df['Vegas_Error_Target'] = df['Target_Wins'] - df['Vegas_OU']
-    else:
-        df['Vegas_Error_Target'] = None
 
-    hist, pred, feat_cols = train_data(df, prediction_season='2025-26')
 
-    heat_corr(df, feat_cols)
-    win_corr_plot(df, feat_cols, topn=10)
+
+    df_main['Vegas_Error_Target'] = df_main['Target_Wins'] - df_main['Vegas_OU']
+
+    hist, pred, feat_cols = train_data(df_main, pred_season='2025-26')
+
+    heat_corr(df_main, feat_cols)
+    win_corr_plot(df_main, feat_cols, topn=10)
 
     x_train = hist[feat_cols]
     y_train = hist['Vegas_Error_Target']
     season = hist['Season'].values
 
-    model = fitModel(x_train, y_train, season_train=season)
+    model = fit_model(x_train, y_train, season_train=season)
     model_io(model, "saved_models/xgb_model.pkl", mode='save')
 
-    cv = run_cv(df, feat_cols)
 
-    eval_2024(df, feat_cols, model_path="saved_models/xgb_model.pkl")
+    cv = run_cv(df_main, feat_cols)
+    eval_2024(df_main, feat_cols, model_path="saved_models/xgb_model.pkl")
 
-    preds, _ = predict(df, feat_cols)
+    preds, _ = predict(df_main, feat_cols)
     if preds is not None:
         print(preds)
 
-    return df, preds, model, cv
+
+    return df_main, preds, model, cv
+
+
 
 
 if __name__ == "__main__":
