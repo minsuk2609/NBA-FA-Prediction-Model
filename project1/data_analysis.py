@@ -25,7 +25,7 @@ rename_map = {
     'eFG%_PU': 'PU_eFG',
     'Freq%_PU': 'PU_freq',
     'PTS_PU': 'PU_pts',
-    'PPP_PnR': 'PR_ppp',
+    'PPP': 'PR_ppp',
     'eFG%_PnR': 'PR_eFG',
     'TOVFreq%': 'PR_tov',
     'Freq%': 'PR_freq'

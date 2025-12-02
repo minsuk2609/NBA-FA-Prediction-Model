@@ -66,15 +66,6 @@ def engineer_features(df_raw):
     df_raw["Prev_Pythag_WinPct"] = (p_for**xval) / ((p_for**xval)+(p_against**xval))
     df_raw["Prev_Pythag_Exp_Wins"] = df_raw["Prev_Pythag_WinPct"] * 82
     df_raw["Prev_Pythag_WinDiff"] = df_raw["Prev_Pythag_Exp_Wins"] - df_raw["Prev_Adv_W"]
-    df_raw["Prev_Pythag_WinPct"] = np.nan
-    df_raw["Prev_Pythag_Exp_Wins"] = np.nan
-    df_raw["Prev_Pythag_WinDiff"] = np.nan
-
-
-    df_raw["Prev_SOS"] = df_raw["Prev_Adv_SRS"] - df_raw["Prev_Adv_MOV"]
-    df_raw["SOS_Effect"] = df_raw["BR_NRtg_A"] + df_raw["Prev_SOS"]
-    df_raw["Prev_SOS"] = np.nan
-    df_raw["SOS_Effect"] = np.nan
 
 
     if "Prev_Games_Missed_Top8" in df_raw.columns:
