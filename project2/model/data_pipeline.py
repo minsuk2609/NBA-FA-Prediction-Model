@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import warnings
+from .player_impact_model import build_projected_team_impact
 
 warnings.filterwarnings("ignore")
 
@@ -13,10 +14,20 @@ def load_data(csv_name):
     rc = pd.read_csv("data/nba_roster_continuity.csv")
     df_load = df_load.merge(rc, on=["Season","Team"], how="left")
 
+    player_impact = build_projected_team_impact("data", save_player_predictions=True)
+    df_load = df_load.merge(player_impact, on=["Season","Team"], how="left")
+
+    missing_projection_rows = player_impact[~player_impact[["Season", "Team"]].apply(tuple, axis=1).isin(df_load[["Season", "Team"]].apply(tuple, axis=1))]
+    if not missing_projection_rows.empty:
+        df_load = pd.concat([df_load, missing_projection_rows], ignore_index=True, sort=False)
+
     return df_load
 
 
 def create_rows(df_raw):
+    if "2025-26" in set(df_raw["Season"]):
+        return df_raw.sort_values(["Team","Season"]).reset_index(drop=True)
+
     prev_season = df_raw["Season"].max()
     tm_list = df_raw[df_raw["Season"]==prev_season]["Team"].unique()
 
@@ -77,8 +88,20 @@ def engineer_features(df_raw):
         pct = df_raw["Prev_Returning_Minutes_Pct"] / 100.0
         df_raw["High_Continuity"] = df_raw["BR_NRtg_A"] * pct
 
+    if {"Projected_Player_Impact_Delta", "Projected_Young_Upside", "Projected_Aging_Drag"}.issubset(df_raw.columns):
+        df_raw["Development_Upside"] = df_raw["Projected_Player_Impact_Delta"] + (0.45 * df_raw["Projected_Young_Upside"])
+        df_raw["Age_Adjusted_Net"] = df_raw["BR_NRtg_A"] + df_raw["Development_Upside"] - (0.55 * df_raw["Projected_Aging_Drag"])
 
-    pct_cols = ["BR_ORtg_A","BR_DRtg_A","BR_NRtg_A","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%"]
+    if {"Prev_Star_Weighted_Games_Missed_Top8", "Prev_Top_Player_Games", "Projected_Young_Upside"}.issubset(df_raw.columns):
+        injury_load = df_raw["Prev_Star_Weighted_Games_Missed_Top8"].fillna(0) / (df_raw["Prev_Top_Player_Games"].fillna(82).clip(lower=1))
+        df_raw["Injury_Regression_Upside"] = injury_load.clip(0, 8) * (1 + df_raw["Projected_Young_Upside"].clip(lower=0) / 10)
+        df_raw["Injury_Risk_Adjusted_Net"] = df_raw["BR_NRtg_A"] - (0.25 * injury_load)
+
+
+    pct_cols = ["BR_ORtg_A","BR_DRtg_A","BR_NRtg_A","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%",
+                "Projected_Player_Impact","Projected_Player_Impact_Delta","Projected_Young_Upside","Projected_Aging_Drag",
+                "Development_Upside","Age_Adjusted_Net",
+                "Injury_Regression_Upside","Injury_Risk_Adjusted_Net"]
 
     for c in pct_cols:
         if c in df_raw.columns:
@@ -97,7 +120,10 @@ def train_data(df_raw, pred_season):
             col.endswith("_pct") or
             col.endswith("_pct_delta") or
             col in ["OffDef_Ratio","Prev_Point_Diff","Prev_eFG_Diff","Prev_Pythag_WinPct","Prev_Pythag_Exp_Wins",
-                    "Prev_Pythag_WinDiff","Prev_SOS","SOS_Effect","Health_Score","Low_Injury","High_Continuity"]):
+                    "Prev_Pythag_WinDiff","Prev_SOS","SOS_Effect","Health_Score","Low_Injury","High_Continuity",
+                    "Development_Upside","Age_Adjusted_Net","Injury_Regression_Upside","Injury_Risk_Adjusted_Net",
+                    "Projected_Player_Impact","Projected_Player_Impact_Delta","Projected_Young_Upside",
+                    "Projected_Aging_Drag","Projected_Rotation_Minutes","Projected_Rotation_Count"]):
             if col not in ["Prev_Adv_W","Prev_Adv_L"]:
                 all_feats.append(col)
 

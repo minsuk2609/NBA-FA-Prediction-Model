@@ -20,15 +20,15 @@ def fit_model(x, y, season_train):
 
     params = {
         'objective': 'reg:squarederror',
-        'max_depth': 6,
+        'max_depth': 3,
         'learning_rate': 0.05,
-        'n_estimators': 100,
-        'min_child_weight': 4,
+        'n_estimators': 250,
+        'min_child_weight': 2,
         'subsample': 0.8,
         'colsample_bytree': 0.8,
-        'gamma': 2,
-        'reg_alpha': 2,
-        'reg_lambda': 5,
+        'gamma': 1,
+        'reg_alpha': 1,
+        'reg_lambda': 8,
         'random_state': 42,
         'n_jobs': -1
     }
