@@ -19,8 +19,10 @@ TEAM_ABBREVIATIONS = {
 
 PLAYER_FEATURES = [
     'Age', 'Age2', 'MP', 'MinutesWeight', 'Impact', 'Impact_Lag1', 'Impact_Delta1',
-    'Impact_Roll2', 'LEBRON WAR', 'LEBRON', 'O-LEBRON', 'D-LEBRON', 'BPM', 'VORP',
+    'Impact_Lag2', 'Impact_Roll2', 'Impact_Trend2', 'Impact_Acceleration',
+    'LEBRON WAR', 'LEBRON', 'O-LEBRON', 'D-LEBRON', 'BPM', 'VORP',
     'WS/48', 'AgeCurve', 'YoungUpsideFlag', 'PrimeFlag', 'AgingFlag', 'Impact_x_AgeCurve',
+    'Trend_x_Young', 'Availability_Burden', 'Availability_Trend', 'Age_Injury_Risk',
 ]
 
 
@@ -59,6 +61,22 @@ def _load_player_frame(data_dir):
     players['Season_Start'] = players['Season'].str[:4].astype(int)
     players = players.sort_values(['PlayerKey', 'Season_Start'])
 
+    # The injury file is team-level, so this is an exposure proxy rather than a
+    # claim that every missed game belongs to the player.  It lets the player
+    # projection discount high-minute players coming from persistently unhealthy
+    # situations without inventing unavailable player-level injury data.
+    injuries = pd.read_csv(f'{data_dir}/nba_injury_data.csv')
+    injuries['Season'] = injuries['Season'].astype(str)
+    for col in ['Star_Weighted_Games_Missed_Top8', 'Games_Missed_Top8']:
+        injuries[col] = pd.to_numeric(injuries[col], errors='coerce').fillna(0)
+    injuries['Availability_Burden'] = (
+        injuries['Star_Weighted_Games_Missed_Top8'] / float(8 * 82)
+    ).clip(0, 1)
+    players = players.merge(
+        injuries[['Season', 'Team', 'Availability_Burden']], on=['Season', 'Team'], how='left'
+    )
+    players['Availability_Burden'] = players['Availability_Burden'].fillna(0)
+
     players['MinutesWeight'] = players['MP'].fillna(players['MP'].median()).clip(lower=250, upper=3000) / 2000.0
     players['Impact'] = (
         players['LEBRON WAR'].fillna(0)
@@ -66,14 +84,22 @@ def _load_player_frame(data_dir):
         + (0.20 * players['BPM'].fillna(0))
     )
     players['Impact_Lag1'] = players.groupby('PlayerKey')['Impact'].shift(1)
+    players['Impact_Lag2'] = players.groupby('PlayerKey')['Impact'].shift(2)
     players['Impact_Delta1'] = (players['Impact'] - players['Impact_Lag1']).clip(-5, 5)
     players['Impact_Roll2'] = players.groupby('PlayerKey')['Impact'].transform(lambda s: s.shift(1).rolling(2, min_periods=1).mean())
+    players['Impact_Trend2'] = ((players['Impact'] - players['Impact_Lag2']) / 2).clip(-3, 3)
+    players['Impact_Acceleration'] = (players['Impact_Delta1'] - (players['Impact_Lag1'] - players['Impact_Lag2'])).clip(-3, 3)
+    players['Availability_Trend'] = players.groupby('PlayerKey')['Availability_Burden'].transform(
+        lambda s: s.shift(1).rolling(2, min_periods=1).mean()
+    ).fillna(0)
     players['Age2'] = players['Age'] ** 2
     players['AgeCurve'] = _age_curve(players['Age'])
     players['YoungUpsideFlag'] = (players['Age'] <= 24).astype(int)
     players['PrimeFlag'] = players['Age'].between(25, 30).astype(int)
     players['AgingFlag'] = (players['Age'] >= 32).astype(int)
     players['Impact_x_AgeCurve'] = players['Impact'] * players['AgeCurve']
+    players['Trend_x_Young'] = players['Impact_Trend2'].fillna(0) * players['YoungUpsideFlag']
+    players['Age_Injury_Risk'] = np.maximum(players['Age'] - 28, 0) / 12
     players['Next_Impact'] = players.groupby('PlayerKey')['Impact'].shift(-1)
     players['Projection_Season'] = players['Season'].map(_next_season_label)
     return players
@@ -129,6 +155,15 @@ def _predict_player_impact(models, frame):
     frame['Projected_Impact_Delta'] = frame['Projected_Impact'] - frame['Impact'].fillna(0)
     frame['Projected_Young_Upside'] = np.where(frame['Age'] <= 24, frame['Projected_Impact_Delta'].clip(lower=0), 0)
     frame['Projected_Aging_Drag'] = np.where(frame['Age'] >= 32, (-frame['Projected_Impact_Delta']).clip(lower=0), 0)
+    # Availability is intentionally a separate output: a player can improve
+    # when healthy while still carrying a larger expected availability discount.
+    frame['Projected_Availability'] = (
+        1 - (0.55 * frame['Availability_Burden'].fillna(0))
+        - (0.25 * frame['Availability_Trend'].fillna(0))
+        - (0.15 * frame['Age_Injury_Risk'].fillna(0))
+    ).clip(0.55, 1.0)
+    frame['Projected_Healthy_Impact'] = frame['Projected_Impact'] * frame['Projected_Availability']
+    frame['Projected_Injury_Risk'] = 1 - frame['Projected_Availability']
     return frame
 
 
@@ -139,6 +174,8 @@ def _aggregate_team_projection(player_predictions):
     player_predictions['Weighted_Impact_Delta'] = player_predictions['Projected_Impact_Delta'] * player_predictions['RotationWeight']
     player_predictions['Weighted_Young_Upside'] = player_predictions['Projected_Young_Upside'] * player_predictions['RotationWeight']
     player_predictions['Weighted_Aging_Drag'] = player_predictions['Projected_Aging_Drag'] * player_predictions['RotationWeight']
+    player_predictions['Weighted_Healthy_Impact'] = player_predictions['Projected_Healthy_Impact'] * player_predictions['RotationWeight']
+    player_predictions['Weighted_Injury_Risk'] = player_predictions['Projected_Injury_Risk'] * player_predictions['RotationWeight']
 
     top_players = (
         player_predictions.sort_values(['Projection_Season', 'Team', 'Weighted_Projected_Impact'], ascending=[True, True, False])
@@ -150,6 +187,8 @@ def _aggregate_team_projection(player_predictions):
         Projected_Player_Impact_Delta=('Weighted_Impact_Delta', 'sum'),
         Projected_Young_Upside=('Weighted_Young_Upside', 'sum'),
         Projected_Aging_Drag=('Weighted_Aging_Drag', 'sum'),
+        Projected_Healthy_Player_Impact=('Weighted_Healthy_Impact', 'sum'),
+        Projected_Rotation_Injury_Risk=('Weighted_Injury_Risk', 'sum'),
         Projected_Rotation_Minutes=('MP', 'sum'),
         Projected_Rotation_Count=('Player', 'count'),
     )
@@ -183,6 +222,13 @@ def build_projected_team_impact(data_dir='data', save_player_predictions=False):
             frame['AgingFlag'] = (frame['Age'] >= 32).astype(int)
             frame['Impact_x_AgeCurve'] = frame['Impact'].fillna(0) * frame['AgeCurve']
             frame['MinutesWeight'] = frame['MinutesWeight'].fillna(0.35)
+            frame['Impact_Lag2'] = frame['Impact_Lag2'].fillna(frame['Impact_Lag1'])
+            frame['Impact_Trend2'] = frame['Impact_Trend2'].fillna(0)
+            frame['Impact_Acceleration'] = frame['Impact_Acceleration'].fillna(0)
+            frame['Availability_Burden'] = frame['Availability_Burden'].fillna(0)
+            frame['Availability_Trend'] = frame['Availability_Trend'].fillna(0)
+            frame['Trend_x_Young'] = frame['Impact_Trend2'] * frame['YoungUpsideFlag']
+            frame['Age_Injury_Risk'] = np.maximum(frame['Age'] - 28, 0) / 12
         else:
             frame = players[players['Season_Start'] == target_start - 1].copy()
 
@@ -195,3 +241,4 @@ def build_projected_team_impact(data_dir='data', save_player_predictions=False):
         players_out = pd.concat(player_frames, ignore_index=True)
         players_out.to_csv(f'{data_dir}/player_impact_projections.csv', index=False)
     return team_features
+
