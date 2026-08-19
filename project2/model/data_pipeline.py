@@ -50,7 +50,8 @@ def lagged_features(df_raw):
         "Adv_Offense Four Factors_TOV%",
         "Adv_Defense Four Factors_eFG%","Adv_Defense Four Factors_DRB%"
     ]
-    feats.extend(["Games_Missed_Top8","Star_Weighted_Games_Missed_Top8","Injury_Prone_Count","Top_Player_Games"])
+    feats.extend(["Games_Missed_Top8","Star_Weighted_Games_Missed_Top8","Injury_Prone_Count","Top_Player_Games",
+                  "BR_ORtg_A", "BR_DRtg_A", "BR_NRtg_A"])
     feats.extend(["Returning_Minutes_Pct","Star_Weighted_Continuity","New_Players_Count"])
 
     for c in feats:
@@ -82,26 +83,32 @@ def engineer_features(df_raw):
     if "Prev_Games_Missed_Top8" in df_raw.columns:
         maxg = 8*82
         df_raw["Health_Score"] = maxg - df_raw["Prev_Games_Missed_Top8"]
-        df_raw["Low_Injury"] = df_raw["BR_NRtg_A"] * (df_raw["Health_Score"]/maxg)
+        df_raw["Low_Injury"] = df_raw["Prev_BR_NRtg_A"] * (df_raw["Health_Score"]/maxg)
 
     if "Prev_Returning_Minutes_Pct" in df_raw.columns:
         pct = df_raw["Prev_Returning_Minutes_Pct"] / 100.0
-        df_raw["High_Continuity"] = df_raw["BR_NRtg_A"] * pct
+        df_raw["High_Continuity"] = df_raw["Prev_BR_NRtg_A"] * pct
 
     if {"Projected_Player_Impact_Delta", "Projected_Young_Upside", "Projected_Aging_Drag"}.issubset(df_raw.columns):
         df_raw["Development_Upside"] = df_raw["Projected_Player_Impact_Delta"] + (0.45 * df_raw["Projected_Young_Upside"])
-        df_raw["Age_Adjusted_Net"] = df_raw["BR_NRtg_A"] + df_raw["Development_Upside"] - (0.55 * df_raw["Projected_Aging_Drag"])
+        df_raw["Age_Adjusted_Net"] = df_raw["Prev_BR_NRtg_A"] + df_raw["Development_Upside"] - (0.55 * df_raw["Projected_Aging_Drag"])
 
     if {"Prev_Star_Weighted_Games_Missed_Top8", "Prev_Top_Player_Games", "Projected_Young_Upside"}.issubset(df_raw.columns):
         injury_load = df_raw["Prev_Star_Weighted_Games_Missed_Top8"].fillna(0) / (df_raw["Prev_Top_Player_Games"].fillna(82).clip(lower=1))
         df_raw["Injury_Regression_Upside"] = injury_load.clip(0, 8) * (1 + df_raw["Projected_Young_Upside"].clip(lower=0) / 10)
-        df_raw["Injury_Risk_Adjusted_Net"] = df_raw["BR_NRtg_A"] - (0.25 * injury_load)
+        df_raw["Injury_Risk_Adjusted_Net"] = df_raw["Prev_BR_NRtg_A"] - (0.25 * injury_load)
+
+    if {"Projected_Healthy_Player_Impact", "Projected_Player_Impact", "Projected_Rotation_Injury_Risk"}.issubset(df_raw.columns):
+        df_raw["Projected_Health_Adjusted_Impact"] = df_raw["Projected_Healthy_Player_Impact"] - df_raw["Projected_Player_Impact"]
+        df_raw["Rotation_Health_Risk"] = df_raw["Projected_Rotation_Injury_Risk"] / df_raw["Projected_Rotation_Count"].clip(lower=1)
 
 
     pct_cols = ["BR_ORtg_A","BR_DRtg_A","BR_NRtg_A","Prev_Adv_SRS","Prev_Adv_MOV","Prev_PG_Team_PTS","Prev_PG_Opp_PTS","Prev_Pythag_Exp_Wins","Prev_Adv_Offense Four Factors_eFG%","Prev_Adv_Defense Four Factors_eFG%",
                 "Projected_Player_Impact","Projected_Player_Impact_Delta","Projected_Young_Upside","Projected_Aging_Drag",
                 "Development_Upside","Age_Adjusted_Net",
-                "Injury_Regression_Upside","Injury_Risk_Adjusted_Net"]
+                "Injury_Regression_Upside","Injury_Risk_Adjusted_Net",
+                "Projected_Healthy_Player_Impact", "Projected_Rotation_Injury_Risk",
+                "Projected_Health_Adjusted_Impact", "Rotation_Health_Risk"]
 
     for c in pct_cols:
         if c in df_raw.columns:
@@ -123,7 +130,9 @@ def train_data(df_raw, pred_season):
                     "Prev_Pythag_WinDiff","Prev_SOS","SOS_Effect","Health_Score","Low_Injury","High_Continuity",
                     "Development_Upside","Age_Adjusted_Net","Injury_Regression_Upside","Injury_Risk_Adjusted_Net",
                     "Projected_Player_Impact","Projected_Player_Impact_Delta","Projected_Young_Upside",
-                    "Projected_Aging_Drag","Projected_Rotation_Minutes","Projected_Rotation_Count"]):
+                    "Projected_Aging_Drag","Projected_Rotation_Minutes","Projected_Rotation_Count",
+                    "Projected_Healthy_Player_Impact","Projected_Rotation_Injury_Risk",
+                    "Projected_Health_Adjusted_Impact","Rotation_Health_Risk"]):
             if col not in ["Prev_Adv_W","Prev_Adv_L"]:
                 all_feats.append(col)
 
@@ -136,3 +145,4 @@ def train_data(df_raw, pred_season):
     pred = df_raw[df_raw["Season"] == pred_season].copy()
 
     return hist, pred, all_feats
+
